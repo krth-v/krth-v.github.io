@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krutharth Vaddiyar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="grain"></div>
+    
+    <header>
+        <div class="name-container">
+            <h1 class="name">
+                <span class="letter-group" data-telugu="క్రు">Kru</span><span class="letter-group" data-telugu="థ">tha</span><span class="letter-group" data-telugu="ర్థ్">rth</span>
+                <span class="space">&nbsp;</span>
+                <span class="letter-group" data-telugu="వ">Va</span><span class="letter-group" data-telugu="డ్డి">ddi</span><span class="letter-group" data-telugu="య">ya</span><span class="letter-group" data-telugu="ర్">r</span>
+            </h1>
+        </div>
+        <nav class="nav-links">
+            <a href="projects.html">Projects</a>
+            <a href="blog.html">Blog</a>
+            <a href="contact.html">Contact</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="hero-text">
+            <p class="tagline">Developer. Creator. Thinker.</p>
+        </div>
+
+        <div class="boxes-grid">
+            <a href="projects.html" class="box box-projects">
+                <span class="box-number">01</span>
+                <span class="box-title">Projects</span>
+                <span class="box-arrow">→</span>
+            </a>
+            <a href="blog.html" class="box box-blog">
+                <span class="box-number">02</span>
+                <span class="box-title">Blog</span>
+                <span class="box-arrow">→</span>
+            </a>
+            <a href="cv.pdf" class="box box-cv" target="_blank">
+                <span class="box-number">03</span>
+                <span class="box-title">CV</span>
+                <span class="box-arrow">↗</span>
+            </a>
+            <a href="contact.html" class="box box-contact">
+                <span class="box-number">04</span>
+                <span class="box-title">Contact</span>
+                <span class="box-arrow">→</span>
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2026 Krutharth Vaddiyar</p>
+    </footer>
+
+    <script>
+        // Telugu script hover effect
+        document.querySelectorAll('.letter-group').forEach(span => {
+            let timeoutId = null;
+            const originalText = span.textContent;
+            const teluguText = span.dataset.telugu;
+
+            span.addEventListener('mouseenter', () => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                span.textContent = teluguText;
+                span.classList.add('telugu-active');
+            });
+
+            span.addEventListener('mouseleave', () => {
+                timeoutId = setTimeout(() => {
+                    span.textContent = originalText;
+                    span.classList.remove('telugu-active');
+                }, 1000);
+            });
+        });
+
+        // Staggered animation on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('loaded');
+        });
+    </script>
+</body>
+</html>
