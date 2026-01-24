@@ -420,22 +420,6 @@ main {
     margin-bottom: 1.5rem;
 }
 
-.project-tags {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.project-tag {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.75rem;
-    background: rgba(232, 213, 181, 0.1);
-    color: var(--accent);
-    border-radius: 2px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-
 
 .blog-list {
     display: flex;
