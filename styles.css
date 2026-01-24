@@ -268,7 +268,7 @@ main {
 }
 
 .leaf-3 {
-    bottom: 200px;
+    bottom: 220px;
     left: calc(50% - 270px);
     opacity: 0;
     transform-origin: right bottom;
