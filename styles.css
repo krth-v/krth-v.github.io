@@ -9,7 +9,7 @@
     --accent-hover: #948a76;
     --leaf-color: #7cb342;
     --border: rgba(245, 245, 240, 0.1);
-    --font-display: 'Instrument Serif', Georgia, serif;
+    --font-display: 'Arial';
     --font-body: 'DM Sans', -apple-system, sans-serif;
 }
 
@@ -186,7 +186,7 @@ main {
         height: 0px;
     }
     to {
-        height: 400px;
+        height: 500px;
     }
 }
 
@@ -229,7 +229,7 @@ main {
 }
 .leaf-labelleft {
     position: absolute;
-    bottom: 35%;
+    bottom: 40%;
     left: 50%;
     transform: translateX(-50%) rotate(-90deg);
     font-family: var(--font-display);
@@ -244,7 +244,7 @@ main {
 }
 .leaf-labelright {
     position: absolute;
-    bottom: 35%;
+    bottom: 40%;
     left: 50%;
     transform: translateX(-50%) rotate(90deg);
     font-family: var(--font-display);
@@ -259,8 +259,8 @@ main {
 }
 
 .leaf-1 {
-    bottom: 330px;
-    left: calc(50% - 210px);
+    bottom: 380px;
+    left: calc(50% - 270px);
     opacity: 0;
     transform-origin: right bottom;
     animation: growLeaf1 0.4s ease forwards, leafSway1 3s ease-in-out infinite;
@@ -269,7 +269,7 @@ main {
 
 .leaf-3 {
     bottom: 200px;
-    left: calc(50% - 210px);
+    left: calc(50% - 270px);
     opacity: 0;
     transform-origin: right bottom;
     animation: growLeaf3 0.4s ease forwards, leafSway3 2.8s ease-in-out infinite;
@@ -277,8 +277,8 @@ main {
 }
 
 .leaf-2 {
-    bottom: 240px;
-    left: calc(50% + 125px);
+    bottom: 280px;
+    left: calc(50% + 160px);
     opacity: 0;
     transform-origin: left bottom;
     animation: growLeaf2 0.4s ease forwards, leafSway2 3.5s ease-in-out infinite;
@@ -286,8 +286,8 @@ main {
 }
 
 .leaf-4 {
-    bottom: 120px;
-    left: calc(50% + 125px);
+    bottom: 130px;
+    left: calc(50% + 160px);
     opacity: 0;
     transform-origin: left bottom;
     animation: growLeaf4 0.4s ease forwards, leafSway4 3.2s ease-in-out infinite;
