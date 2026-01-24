@@ -15,53 +15,54 @@
     <header>
         <div class="name-container">
             <h1 class="name">
-                <span class="letter-group" data-telugu="క్రు">Kru</span><span class="letter-group" data-telugu="థ">tha</span><span class="letter-group" data-telugu="ర్థ్">rth</span>
-                <span class="space">&nbsp;</span>
-                <span class="letter-group" data-telugu="వ">Va</span><span class="letter-group" data-telugu="డ్డి">ddi</span><span class="letter-group" data-telugu="య">ya</span><span class="letter-group" data-telugu="ర్">r</span>
+                <span href="" class="letter-group" data-telugu="కృ">Kru</span><span href="" class="letter-group" data-telugu="థ">tha</span><span href="" class="letter-group" data-telugu="ర్థ్">rth</span>
+                <span href=""class="space">&nbsp;</span>
+                <span href=""class="letter-group" data-telugu="వా">Va</span><span href="" class="letter-group" data-telugu="ద్ది">ddi</span><span href="" class="letter-group" data-telugu="యా">ya</span><span  href="" class="letter-group" data-telugu="ర్">r</span>
             </h1>
         </div>
-        <nav class="nav-links">
-            <a href="projects.html">Projects</a>
-            <a href="blog.html">Blog</a>
-            <a href="contact.html">Contact</a>
-        </nav>
     </header>
 
     <main>
-        <div class="hero-text">
-            <p class="tagline">Developer. Creator. Thinker.</p>
-        </div>
 
-        <div class="boxes-grid">
-            <a href="projects.html" class="box box-projects">
-                <span class="box-number">01</span>
-                <span class="box-title">Projects</span>
-                <span class="box-arrow">→</span>
-            </a>
-            <a href="blog.html" class="box box-blog">
-                <span class="box-number">02</span>
-                <span class="box-title">Blog</span>
-                <span class="box-arrow">→</span>
-            </a>
-            <a href="cv.pdf" class="box box-cv" target="_blank">
-                <span class="box-number">03</span>
-                <span class="box-title">CV</span>
-                <span class="box-arrow">↗</span>
-            </a>
-            <a href="contact.html" class="box box-contact">
-                <span class="box-number">04</span>
-                <span class="box-title">Contact</span>
-                <span class="box-arrow">→</span>
-            </a>
+        <div class="sapling-container">
+            <div class="sapling">
+            <div class="stem"><div class="stem hole"></div> </div>
+                <a href="projects.html" class="leaf leaf-1">
+                        <svg width="90" height="115" viewBox="0 0 70 90">
+                            <path d="M35 90 C35 90 5 70 5 40 C5 15 35 0 35 0 C35 0 65 15 65 40 C65 70 35 90 35 90Z" fill="#7cb342"/>
+                        </svg>
+                        <span class="leaf-labelleft">Projects</span>
+                    </a>
+
+                <a href="vaddiyar_krutharth_resume.pdf" class="leaf leaf-2">
+                        <svg width="90" height="115" viewBox="0 0 70 90">
+                            <path d="M35 90 C35 90 5 70 5 40 C5 15 35 0 35 0 C35 0 65 15 65 40 C65 70 35 90 35 90Z" fill="#7cb342"/>
+
+                        </svg>
+                        <span class="leaf-labelright">CV</span>
+                    </a>
+
+
+                <a href="blog.html" class="leaf leaf-3">
+                        <svg width="90" height="115" viewBox="0 0 70 90">
+                            <path d="M35 90 C35 90 5 70 5 40 C5 15 35 0 35 0 C35 0 65 15 65 40 C65 70 35 90 35 90Z" fill="#7cb342"/>
+
+                        </svg>
+                        <span class="leaf-labelleft">Blog</span>
+                    </a>
+
+                <a href="contact.html" class="leaf leaf-4">
+                        <svg width="90" height="115" viewBox="0 0 70 90">
+                            <path d="M35 90 C35 90 5 70 5 40 C5 15 35 0 35 0 C35 0 65 15 65 40 C65 70 35 90 35 90Z" fill="#7cb342"/>
+                        </svg>
+                        <span class="leaf-labelright">Contact Me</span>
+                    </a>
+            </div>
         </div>
     </main>
 
-    <footer>
-        <p>© 2026 Krutharth Vaddiyar</p>
-    </footer>
 
     <script>
-        // Telugu script hover effect
         document.querySelectorAll('.letter-group').forEach(span => {
             let timeoutId = null;
             const originalText = span.textContent;
@@ -84,7 +85,6 @@
             });
         });
 
-        // Staggered animation on load
         document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.add('loaded');
         });

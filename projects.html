@@ -14,12 +14,15 @@
     
     <header>
         <div class="name-container">
-            <a href="index.html" class="name" style="text-decoration: none; color: inherit;">
-                Krutharth Vaddiyar
-            </a>
+             <h1 class="name">
+                <span href="" class="letter-group" data-telugu="కృ">Kru</span><span href="" class="letter-group" data-telugu="థ">tha</span><span href="" class="letter-group" data-telugu="ర్థ్">rth</span>
+                <span href=""class="space">&nbsp;</span>
+                <span href=""class="letter-group" data-telugu="వా">Va</span><span href="" class="letter-group" data-telugu="ద్ది">ddi</span><span href="" class="letter-group" data-telugu="యా">ya</span><span  href="" class="letter-group" data-telugu="ర్">r</span>
+            </h1>
+        </div>
         </div>
         <nav class="nav-links">
-            <a href="projects.html" style="color: var(--text-primary);">Projects</a>
+            <a href="index.html">Home</a>
             <a href="blog.html">Blog</a>
             <a href="contact.html">Contact</a>
         </nav>
@@ -33,49 +36,42 @@
     <main class="page-content">
         <div class="projects-grid">
             <article class="project-card">
-                <h3>Project Alpha</h3>
-                <p>A machine learning platform for predictive analytics. Built with Python, TensorFlow, and deployed on AWS infrastructure with real-time data processing capabilities.</p>
+                <h3>Gravitational Wave Project</h3>
+                <p>Coming soon... will probably finish with this by the end of March</p>
                 <div class="project-tags">
                     <span class="project-tag">Python</span>
-                    <span class="project-tag">TensorFlow</span>
-                    <span class="project-tag">AWS</span>
-                </div>
-            </article>
-
-            <article class="project-card">
-                <h3>WebFlow Dashboard</h3>
-                <p>A comprehensive analytics dashboard for web applications. Features real-time metrics, custom reporting, and seamless integration with existing toolchains.</p>
-                <div class="project-tags">
-                    <span class="project-tag">React</span>
-                    <span class="project-tag">D3.js</span>
-                    <span class="project-tag">Node.js</span>
-                </div>
-            </article>
-
-            <article class="project-card">
-                <h3>SecureVault</h3>
-                <p>An end-to-end encrypted file storage solution with zero-knowledge architecture. Designed for enterprise security requirements and compliance standards.</p>
-                <div class="project-tags">
-                    <span class="project-tag">Rust</span>
-                    <span class="project-tag">Cryptography</span>
-                    <span class="project-tag">Docker</span>
-                </div>
-            </article>
-
-            <article class="project-card">
-                <h3>API Gateway Pro</h3>
-                <p>A high-performance API gateway with rate limiting, authentication, and advanced routing capabilities. Handles millions of requests with minimal latency.</p>
-                <div class="project-tags">
-                    <span class="project-tag">Go</span>
-                    <span class="project-tag">gRPC</span>
-                    <span class="project-tag">Kubernetes</span>
+                    <span class="project-tag">Vendi Score</span>
                 </div>
             </article>
         </div>
     </main>
 
-    <footer>
-        <p>© 2026 Krutharth Vaddiyar</p>
-    </footer>
+<script>
+        document.querySelectorAll('.letter-group').forEach(span => {
+            let timeoutId = null;
+            const originalText = span.textContent;
+            const teluguText = span.dataset.telugu;
+
+            span.addEventListener('mouseenter', () => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                span.textContent = teluguText;
+                span.classList.add('telugu-active');
+            });
+
+            span.addEventListener('mouseleave', () => {
+                timeoutId = setTimeout(() => {
+                    span.textContent = originalText;
+                    span.classList.remove('telugu-active');
+                }, 1000);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('loaded');
+        });
+    </script>
 </body>
 </html>

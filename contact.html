@@ -14,14 +14,17 @@
     
     <header>
         <div class="name-container">
-            <a href="index.html" class="name" style="text-decoration: none; color: inherit;">
-                Krutharth Vaddiyar
-            </a>
+             <h1 class="name">
+                <span href="" class="letter-group" data-telugu="కృ">Kru</span><span href="" class="letter-group" data-telugu="థ">tha</span><span href="" class="letter-group" data-telugu="ర్థ్">rth</span>
+                <span href=""class="space">&nbsp;</span>
+                <span href=""class="letter-group" data-telugu="వా">Va</span><span href="" class="letter-group" data-telugu="ద్ది">ddi</span><span href="" class="letter-group" data-telugu="యా">ya</span><span  href="" class="letter-group" data-telugu="ర్">r</span>
+            </h1>
+        </div>
         </div>
         <nav class="nav-links">
+            <a href="index.html">Home</a>
             <a href="projects.html">Projects</a>
             <a href="blog.html">Blog</a>
-            <a href="contact.html" style="color: var(--text-primary);">Contact</a>
         </nav>
     </header>
 
@@ -33,25 +36,18 @@
     <main class="page-content">
         <div class="contact-content">
             <div class="contact-info">
-                <h2>Let's Connect</h2>
-                <p>I'm always interested in hearing about new projects, opportunities, or just having a conversation about technology and ideas. Feel free to reach out through any of the channels below or use the contact form.</p>
-                
                 <div class="contact-links">
-                    <a href="mailto:hello@krutharth.dev" class="contact-link">
+                    <a href="kvaddiyar@gmail.com" class="contact-link">
                         <span>Email</span>
-                        hello@krutharth.dev
+                        kvaddiyar@gmail.co
                     </a>
-                    <a href="https://github.com/krutharth" class="contact-link" target="_blank">
+                    <a href="https://github.com/krth-v" class="contact-link" target="_blank">
                         <span>GitHub</span>
-                        github.com/krutharth
+                        github.com/krth-v
                     </a>
                     <a href="https://linkedin.com/in/krutharth" class="contact-link" target="_blank">
                         <span>LinkedIn</span>
                         linkedin.com/in/krutharth
-                    </a>
-                    <a href="https://twitter.com/krutharth" class="contact-link" target="_blank">
-                        <span>Twitter</span>
-                        @krutharth
                     </a>
                 </div>
             </div>
@@ -74,8 +70,32 @@
         </div>
     </main>
 
-    <footer>
-        <p>© 2026 Krutharth Vaddiyar</p>
-    </footer>
+<script>
+        document.querySelectorAll('.letter-group').forEach(span => {
+            let timeoutId = null;
+            const originalText = span.textContent;
+            const teluguText = span.dataset.telugu;
+
+            span.addEventListener('mouseenter', () => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                span.textContent = teluguText;
+                span.classList.add('telugu-active');
+            });
+
+            span.addEventListener('mouseleave', () => {
+                timeoutId = setTimeout(() => {
+                    span.textContent = originalText;
+                    span.classList.remove('telugu-active');
+                }, 1000);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('loaded');
+        });
+    </script>
 </body>
 </html>
