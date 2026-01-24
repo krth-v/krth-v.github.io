@@ -3,7 +3,7 @@
     --bg-primary: #cccccc;
     --bg-secondary: #7c7c7c;
     --text-primary: #000000;
-    --text-secondary: #c8c9c4;
+    --text-secondary: #000000;
     --accent: #b9a178;
     --bg-gradient: #ffd08b;
     --accent-hover: #948a76;
@@ -613,23 +613,6 @@ footer p {
     color: var(--text-secondary);
 }
 
-.back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-size: 0.875rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    transition: all 0.3s ease;
-    margin-bottom: 1rem;
-}
-
-.back-link:hover {
-    color: var(--text-primary);
-    transform: translateX(-4px);
-}
 
 /* Animations */
 @keyframes fadein {
