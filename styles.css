@@ -160,6 +160,8 @@ header {
     font-size: clamp(1.8rem, 4vw, 2.8rem);
     font-weight: 400;
     letter-spacing: -0.02em;
+    line-height: 1.2;
+    height: 1.2em;
     color: var(--text-primary);
     cursor: default;
 }
