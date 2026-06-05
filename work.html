@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Work · Krutharth Vaddiyar</title>
+  <link rel="icon" href="favi.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        serif: ['Playfair Display', 'serif'],
+      } } }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f4f1ea;
+    }
+    /* paper grain */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+      background-size: 160px 160px;
+    }
+    body > * { position: relative; z-index: 1; }
+    .section-fade {
+      opacity: 0; transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .section-fade.visible { opacity: 1; transform: translateY(0); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #fdf6ec; }
+    ::-webkit-scrollbar-thumb { background: #e7d3b3; border-radius: 4px; }
+    .arrow-link svg { transition: transform 0.15s ease; }
+    .arrow-link:hover svg { transform: translate(2px, -2px); }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+    .card-hover:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body class="text-stone-700 min-h-screen antialiased selection:bg-amber-200 selection:text-stone-900">
+
+<main class="max-w-3xl mx-auto px-6 pt-20 pb-24 relative">
+
+    <!-- back link -->
+    <a href="index.html" class="arrow-link inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-amber-700 transition-colors mb-10">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9.5 2.5L2.5 9.5M2.5 9.5H7.5M2.5 9.5V4.5"/>
+      </svg>
+      Krutharth Vaddiyar
+    </a>
+
+    <header class="section-fade mb-14">
+      <h1 class="font-serif text-4xl sm:text-5xl text-stone-900 leading-tight mb-4">Work</h1>
+      <nav class="mt-6 flex gap-3">
+        <a href="#projects" class="px-4 py-2 rounded-full bg-white/70 border border-stone-900 text-sm text-stone-700 hover:bg-amber-600 hover:text-white transition-all shadow-sm">Projects</a>
+        <a href="#blog" class="px-4 py-2 rounded-full bg-white/70 border border-stone-900 text-sm text-stone-700 hover:bg-amber-600 hover:text-white transition-all shadow-sm">Blog</a>
+      </nav>
+    </header>
+
+    <!-- PROJECTS -->
+    <section id="projects" class="scroll-mt-12 section-fade">
+      <h2 class="font-serif text-2xl text-stone-900 mb-6">Projects</h2>
+      <div class="grid sm:grid-cols-2 gap-5">
+
+        <!-- PROJECT CARD TEMPLATE — copy this block per project
+        <a href="PROJECT_URL" target="_blank"
+           class="card-hover block rounded-2xl border border-stone-900 bg-white/70 p-6 shadow-sm hover:shadow-md group">
+          <h3 class="font-serif text-lg text-stone-900 mb-2 group-hover:text-amber-700 transition-colors">Project title</h3>
+          <p class="text-stone-600 text-sm leading-relaxed mb-4">One or two sentences on what it is and what you did.</p>
+          <span class="text-xs text-amber-700 font-medium">Python · 2026</span>
+        </a>
+        -->
+
+      </div>
+    </section>
+
+    <!-- BLOG -->
+    <section id="blog" class="scroll-mt-12 mt-16 section-fade">
+      <h2 class="font-serif text-2xl text-stone-900 mb-6">Blog</h2>
+      <div class="space-y-4">
+
+        <!-- BLOG POST TEMPLATE — copy this block per post
+        <a href="POST_URL"
+           class="card-hover block rounded-2xl border border-stone-900 bg-white/70 p-6 shadow-sm hover:shadow-md group">
+          <div class="flex items-baseline justify-between gap-4">
+            <h3 class="font-serif text-lg text-stone-900 group-hover:text-amber-700 transition-colors">Post title</h3>
+            <span class="text-xs text-stone-400 shrink-0">Jun 2026</span>
+          </div>
+          <p class="text-stone-600 text-sm leading-relaxed mt-2">A short blurb that pulls the reader in.</p>
+        </a>
+        -->
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="relative">
+    <div class="max-w-3xl mx-auto px-6 py-8">
+      <p class="text-stone-400 text-xs">Krutharth Vaddiyar · 2026</p>
+    </div>
+  </footer>
+
+<script>
+  const faders = document.querySelectorAll('.section-fade');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+  }, { threshold: 0.1 });
+  faders.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
