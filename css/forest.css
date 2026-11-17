@@ -1,0 +1,52 @@
+/* The forest's own elements over its canvas (js/forest/life/card.js). */
+
+.forest-ring {
+  position: fixed; left: 0; top: 0; box-sizing: border-box; pointer-events: none;
+  border: 1.5px solid rgba(250, 244, 226, 0.9); border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(20, 24, 18, 0.35);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.forest-ring.on { opacity: 1; }
+
+.forest-card {
+  position: fixed; right: 28px; top: 50%; width: min(320px, 34vw); box-sizing: border-box;
+  padding: 20px 22px 16px; border-radius: 10px;
+  color: #2a2620; background: rgba(240, 233, 216, 0.94); box-shadow: 0 10px 34px rgba(8, 12, 8, 0.45);
+  font: 15px/1.5 Georgia, 'Times New Roman', serif;
+  opacity: 0; pointer-events: none; transform: translate(26px, -50%);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.forest-card.on { opacity: 1; transform: translate(0, -50%); }
+.forest-card h2 { margin: 0; font-size: 25px; font-weight: normal; line-height: 1.15; }
+.forest-card .latin { margin: 2px 0 10px; font-style: italic; color: #5a5346; }
+.forest-card p { margin: 0 0 9px; }
+.forest-card ul { margin: 0 0 10px; padding-left: 18px; }
+.forest-card li { margin: 1px 0; }
+.forest-card .doing { margin-top: 12px; padding-top: 10px; border-top: 1px solid #c9bfa8; }
+.forest-card .doing span { color: #7a705e; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; display: block; }
+.forest-card .doing b { font-weight: normal; }
+.forest-card .hint { margin: 10px 0 0; font-size: 12px; color: #8a806c; }
+
+@media (prefers-reduced-motion: reduce) {
+  .forest-ring, .forest-card { transition: none; }
+}
+
+/* the sound's control, at the foot of the page: on or off, and whose the recordings are (js/forest/sound/index.js) */
+.forest-sound {
+  position: fixed; left: 18px; bottom: 16px; z-index: 5; display: flex; align-items: flex-end; gap: 10px;
+  font: 13px/1.4 Georgia, 'Times New Roman', serif; color: #efe9da;
+}
+.forest-sound button {
+  font: inherit; color: inherit; background: rgba(24, 28, 22, 0.55); border: 1px solid rgba(239, 233, 218, 0.35); border-radius: 3px;
+  padding: 4px 10px; cursor: pointer;
+}
+.forest-sound button:hover, .forest-sound button:focus-visible { background: rgba(24, 28, 22, 0.8); border-color: rgba(239, 233, 218, 0.7); outline: none; }
+.forest-sound button[aria-pressed="false"] { color: rgba(239, 233, 218, 0.6); }
+.forest-sound details { max-width: min(430px, 60vw); }
+.forest-sound summary { cursor: pointer; color: rgba(239, 233, 218, 0.7); list-style: none; padding: 4px 0; }
+.forest-sound summary::-webkit-details-marker { display: none; }
+.forest-sound summary:hover { color: #efe9da; }
+.forest-sound details[open] { background: rgba(24, 28, 22, 0.82); border: 1px solid rgba(239, 233, 218, 0.25); border-radius: 3px; padding: 6px 12px 8px; max-height: 60vh; overflow: auto; }
+.forest-sound ul { margin: 4px 0 0; padding-left: 16px; }
+.forest-sound li { margin: 2px 0; }
+.forest-sound a { color: inherit; }
