@@ -100,6 +100,19 @@ export function paintBat(sheet, built, look) {
   for (const [cell, dark] of [[CELLS.top, 1], [CELLS.under, 0.85]]) {
     ctx.save(); ctx.beginPath(); ctx.rect(cell[0], cell[1], 512, 512); ctx.clip(); ctx.translate(cell[0], cell[1]);
     const line = (a, b, w, col, alpha = 1) => { const [x, y] = at(a), [X, Y] = at(b); ctx.strokeStyle = css(col, alpha); ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(X, Y); ctx.stroke(); };
+    // Broad wedges of pigment between the digits describe the taut and slack parts
+    // of each panel. Use the rig's finger rays so the paint folds with the wing.
+    const [wx, wy] = at(J.W);
+    for (const [a, b] of [['d2', 'd3'], ['d3', 'd4'], ['d4', 'd5']]) {
+      const [ax, ay] = at(J.tip[a]), [bx, by] = at(J.tip[b]);
+      const base = cell === CELLS.top ? C.membrane.top : C.membrane.under;
+      ctx.fillStyle = css(shift(base, 4, 6, 6), 0.78);
+      ctx.beginPath(); ctx.moveTo(wx, wy);
+      ctx.lineTo(ax, ay);
+      ctx.quadraticCurveTo(ax * 0.72 + bx * 0.28, ay * 0.72 + by * 0.28,
+        ax * 0.52 + bx * 0.48, ay * 0.52 + by * 0.48);
+      ctx.quadraticCurveTo((wx + ax) / 2, (wy + ay) / 2, wx, wy); ctx.fill();
+    }
     // the fans of fine lines that cross the membrane between the fingers
     for (const [a, b] of [['d3', 'd4'], ['d4', 'd5']]) for (let k = 1; k < 7; k += 1) {
       const t = k / 7, e1 = J.W.clone().lerp(J.tip[a], 1), e2 = J.W.clone().lerp(J.tip[b], 1);

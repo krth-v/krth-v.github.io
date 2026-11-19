@@ -385,7 +385,10 @@ export function buildBeast(sheet, level = 0) {
       const nIn = wid.clone().cross(len).multiplyScalar(z).normalize();
       const put = (u, v, inner, out) => {
         const wv = earWidth(ear, v, Math.sin(Math.PI * Math.min(1, 0.06 + v * 0.94)) ** 0.75 * ear.width * 0.5 * (1 - 0.28 * v));
-        const cup = (u * u - 0.4) * wv * 0.45 + (inner ? 0.0015 : -0.0015) * unit;
+        // Roll the forward rim into the bowl where the ear opens, with a soft fold
+        // that dies out towards the tip. Both skins follow the same cartilage.
+        const fold = Math.sin(Math.PI * v) * (0.5 + 0.5 * u);
+        const cup = ((u * u - 0.4) * 0.58 + u * fold * 0.28) * wv + (inner ? 0.0015 : -0.0015) * unit;
         out.p.copy(at).addScaledVector(len, v * ear.length).addScaledVector(wid, u * wv).addScaledVector(nIn, cup);
         out.b0 = B.head; out.b1 = bone; out.w1 = smooth(0, 0.3, v);
       };

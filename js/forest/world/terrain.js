@@ -59,6 +59,7 @@ export function createTerrain(seed = 7) {
   // (built in steps where the forest is built in steps: js/forest/index.js; otherwise all at once, when first asked for)
   function build() { const steps = buildSteps(); for (;;) { const { done, value } = steps.next(); if (done) return value; } }
   function* buildSteps() {
+    tiles.length = 0;
     const byName = Object.fromEntries(SHEETS.map((s) => [s.name, s]));
     const within = (s, x, z) => x >= s.xs[0] && x <= s.xs[s.xs.length - 1] && z >= s.zs[0] && z <= s.zs[s.zs.length - 1];
     const find = (a, v) => { let lo = 0, hi = a.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (a[m] <= v) lo = m; else hi = m - 1; } return lo; };
@@ -111,11 +112,24 @@ export function createTerrain(seed = 7) {
           ground.push(paint[0], paint[1], paint[2], paint[3]);
         }
       }
-      for (let j = 0; j < nz; j += 1) {
-        for (let i = 0; i < nx; i += 1) {
-          if (s.hole && s.xs[i] >= s.hole.minX && s.xs[i + 1] <= s.hole.maxX && s.zs[j] >= s.hole.minZ && s.zs[j + 1] <= s.hole.maxZ) continue;
-          const a = first + j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
-          index.push(a, c, b, b, c, d);
+      // Keep the full-resolution triangles of a tile contiguous. The walk draws all
+      // visible tiles together, while height queries continue to use the original lattice.
+      const tileSize = 16;
+      const vertex = new THREE.Vector3();
+      for (let z0 = 0; z0 < nz; z0 += tileSize) {
+        for (let x0 = 0; x0 < nx; x0 += tileSize) {
+          const start = index.length, bounds = new THREE.Box3();
+          const x1 = Math.min(nx, x0 + tileSize), z1 = Math.min(nz, z0 + tileSize);
+          for (let j = z0; j < z1; j++) for (let i = x0; i < x1; i++) {
+            if (s.hole && s.xs[i] >= s.hole.minX && s.xs[i + 1] <= s.hole.maxX && s.zs[j] >= s.hole.minZ && s.zs[j + 1] <= s.hole.maxZ) continue;
+            const a = first + j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+            index.push(a, c, b, b, c, d);
+          }
+          if (start === index.length) continue;
+          for (let j = z0; j <= z1; j++) for (let i = x0; i <= x1; i++) {
+            bounds.expandByPoint(vertex.fromArray(position, (first + j * (nx + 1) + i) * 3));
+          }
+          tiles.push({ bounds: bounds.expandByScalar(0.001), start, end: index.length, visible: true });
         }
       }
     }
@@ -124,10 +138,32 @@ export function createTerrain(seed = 7) {
     geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normal), 3));
     geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
     geometry.setAttribute('aGround', new THREE.BufferAttribute(new Float32Array(ground), 4));        // what the floor is painted as (land.js paint)
-    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(index), 1));
+    allIndices = new Uint32Array(index);
+    geometry.setIndex(new THREE.BufferAttribute(allIndices.slice(), 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setDrawRange(0, allIndices.length);
     return geometry;
   }
 
+  const tiles = [];
+  let allIndices;
+  function cull(frustum) {
+    let changed = false;
+    for (const tile of tiles) {
+      const visible = frustum.intersectsBox(tile.bounds);
+      if (tile.visible !== visible) { tile.visible = visible; changed = true; }
+    }
+    if (!changed) return;
+    const dest = geometry.index;
+    let count = 0;
+    for (const tile of tiles) {
+      if (!tile.visible) continue;
+      dest.array.set(allIndices.subarray(tile.start, tile.end), count);
+      count += tile.end - tile.start;
+    }
+    geometry.setDrawRange(0, count);
+    dest.clearUpdateRanges();
+    if (count) { dest.addUpdateRange(0, count); dest.needsUpdate = true; }
+  }
   let geometry = null, lattice = null;                  // lattice: where the fine sheet's vertices are in the mesh, for surfaceAt
   // The height of the ground's own mesh at (x, z), where the fine sheet lies: its triangles are flat, and
   // where the creek's bed turns from a fall into a pool they stand a hand above the bed they are drawn from.
@@ -160,7 +196,7 @@ export function createTerrain(seed = 7) {
     return [gx * ease, gz * ease];
   }
   return {
-    heightAt, base, natural, land, surfaceAt, slopeAt,
+    heightAt, base, natural, land, surfaceAt, slopeAt, cull,
     cutBy(fn) { cut = fn; geometry = null; },
     get geometry() { return geometry || (geometry = build()); },
     *grow() { if (!geometry) geometry = yield* buildSteps(); },

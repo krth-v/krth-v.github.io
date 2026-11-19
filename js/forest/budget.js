@@ -24,10 +24,12 @@ export const CEILINGS = { foliageTriangles: 550000, solidTriangles: 900000, draw
 // `mirror` is how the river finds what it mirrors (light/materials.js WATER_FRAG): how many steps a mirrored
 // ray is followed over the map of the banks, and how many times longer each step is than the last, so that
 // the last of them is 280 m out whatever their number. Fewer steps are fewer reads, and a softer mirrored edge.
+// Budget the HDR scene in physical pixels. The final composite and HTML controls stay at
+// display resolution, and small windows use their full resolution on every tier.
 const TIERS = {
-  high: { msaa: 2, prepass: false, shaftSteps: 12, bloom: true, sunMap: 4096, density: 1.0, lodScale: 1.0, hand: 1.0, tail: 1.0, minScale: 0.7, mirror: [12, 1.6] },
-  mid:  { msaa: 2, prepass: false, shaftSteps: 6,  bloom: true, sunMap: 2048, density: 0.7, lodScale: 0.8, hand: 1.0, tail: 1.0, minScale: 0.6, mirror: [8, 2.09] },
-  low:  { msaa: 0, prepass: false, shaftSteps: 0,  bloom: false, sunMap: 1024, density: 0.5, lodScale: 0.6, hand: 1.0, tail: 1.0, minScale: 0.5, mirror: [5, 3.64] },
+  high: { scenePixels: 1440 * 810, msaa: 2, prepass: false, shaftSteps: 12, bloom: true, sunMap: 4096, density: 1.0, lodScale: 1.0, hand: 1.0, tail: 1.0, minScale: 0.7, mirror: [12, 1.6] },
+  mid:  { scenePixels: 1152 * 720, msaa: 2, prepass: false, shaftSteps: 6,  bloom: true, sunMap: 2048, density: 0.7, lodScale: 0.8, hand: 1.0, tail: 1.0, minScale: 0.6, mirror: [8, 2.09] },
+  low:  { scenePixels: 960 * 600, msaa: 0, prepass: false, shaftSteps: 0,  bloom: false, sunMap: 1024, density: 0.5, lodScale: 0.6, hand: 1.0, tail: 1.0, minScale: 0.5, mirror: [5, 3.64] },
 };
 
 export function forestSettings(overrides = {}) {

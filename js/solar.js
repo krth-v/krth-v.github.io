@@ -167,6 +167,18 @@ export function currentHour() {
   return norm24(_ffBase.hour + elapsedH);
 }
 
+// The clock normally changes once a second. Renderers share the palette and sun
+// vectors for that instant. Scrubbing, fast-forward and live arc edits take effect immediately.
+let lastHour, lastMax, lastCap, lastGamma, current;
+export function currentSolarState() {
+  const hour = currentHour();
+  if (hour !== lastHour || lastMax !== W.__sunMaxElev || lastCap !== W.__sunElevSoftCap || lastGamma !== W.__sunGamma) {
+    current = solarState(hour);
+    lastHour = hour; lastMax = W.__sunMaxElev; lastCap = W.__sunElevSoftCap; lastGamma = W.__sunGamma;
+  }
+  return current;
+}
+
 // Console helper: latch a scrub hour (persists across frames until you clear it
 // with `window.__FORCE_HOUR = null`) and log the resulting state for eyeballing.
 if (typeof window !== 'undefined') {

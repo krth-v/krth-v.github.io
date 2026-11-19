@@ -1,5 +1,6 @@
+import { pressSpot } from './skinPaint.js';
 import * as THREE from 'three';
-import { makeCanvas, mix, rng, dab } from '../paint/brush.js';
+import { makeCanvas, mix, rng } from '../paint/brush.js';
 import { SAL_SHEET, SCELLS, WRIST, TOES } from './salamander.js';
 
 // A salamander's or a newt's paint: one sheet for the whole animal (life/salamander.js lays its cells out), painted
@@ -147,7 +148,7 @@ export function paintSalamander(sheet, built, look) {
         if (grooves && p.s > grooves.from - grooves.width && p.s < grooves.to + grooves.width) {
           const gap = (grooves.to - grooves.from) / Math.max(1, grooves.count - 1), k = Math.round((p.s - grooves.from) / gap);
           if (k >= 0 && k < grooves.count) {
-            const d = (p.s - (grooves.from + k * gap) + 0.012 * (p.a - 0.5)) / grooves.width, flank = smooth(0.12, 0.25, p.a) * smooth(0.86, 0.7, p.a);
+            const d = (p.s - (grooves.from + k * gap) + 0.027 * Math.sin(Math.PI * p.a)) / grooves.width, flank = smooth(0.12, 0.25, p.a) * smooth(0.86, 0.7, p.a);
             if (flank > 0) { over(grooves.colour, flank * Math.exp(-d * d * 2.6) * 0.45); if (d > 0.6 && d < 1.6) for (let n = 0; n < 3; n += 1) c[n] *= 1 + 0.06 * flank; }
           }
         }
@@ -219,7 +220,7 @@ export function paintSalamander(sheet, built, look) {
         if (spec.where && !spec.where(q.s, q.a)) continue;
         // a dab a given share of the snout-to-vent length across, laid round a body whose girth here is q.round
         const size = (spec.size[0] + (spec.size[1] - spec.size[0]) * r()) * (w / S), squash = (h / Math.max(0.05, q.round)) / (w / S);
-        dab(ctx, x0 + t * w, y0 + v * h, size, spec.colour, spec.alpha ?? 0.9, squash * (spec.long ? 1.8 : 1), r() * 0.4);
+        pressSpot(ctx, x0 + t * w, y0 + v * h, size, spec.colour, spec.alpha ?? 0.9, squash * (spec.long ? 1.8 : 1), r() * 0.4);
       }
     }
     ctx.restore();

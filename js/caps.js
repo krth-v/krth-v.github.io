@@ -11,9 +11,9 @@
 
 // The tier table (exact values are the contract; see LIGHTING_REVAMP_PLAN.md 0a).
 const TIERS = {
-  high: { tier: 'high', sunShadowSize: 4096, windowShadowSize: 2048, lampShadowSize: 1024, screenShadowSize: 2048, pmremEverySec: 8,        godrays: true,  godraySamples: 32, gtaoSamples: 16, bloom: true, smaa: true, pixelRatioCap: 1.5,  shadowUpdateEvery: 2, textureAnisotropy: 8, hearthTongues: 12, hearthRows: 8, hearthEmbers: 24, hearthPigmentSamples: 2 },
-  mid:  { tier: 'mid',  sunShadowSize: 2048, windowShadowSize: 1024, lampShadowSize: 512,  screenShadowSize: 1024, pmremEverySec: 20,       godrays: true,  godraySamples: 16, gtaoSamples: 12, bloom: true, smaa: true, pixelRatioCap: 1.25, shadowUpdateEvery: 4, textureAnisotropy: 4, hearthTongues: 9,  hearthRows: 7, hearthEmbers: 16, hearthPigmentSamples: 1 },
-  low:  { tier: 'low',  sunShadowSize: 1024, windowShadowSize: 512,  lampShadowSize: 512,  screenShadowSize: 1024, pmremEverySec: Infinity, godrays: false, godraySamples: 0,  gtaoSamples: 8,  bloom: true, smaa: true, pixelRatioCap: 1.0,  shadowUpdateEvery: 8, textureAnisotropy: 2, hearthTongues: 6,  hearthRows: 6, hearthEmbers: 10, hearthPigmentSamples: 1 },
+  high: { tier: 'high', sunShadowSize: 4096, windowShadowSize: 2048, lampShadowSize: 1024, screenShadowSize: 2048, pmremEverySec: 8,        godrays: true,  godraySamples: 32, gtaoSamples: 16, bloom: true, smaa: true, pixelRatioCap: 1.5,  shadowUpdateEvery: 8, textureAnisotropy: 8, hearthTongues: 12, hearthRows: 8, hearthEmbers: 24, hearthPigmentSamples: 2 },
+  mid:  { tier: 'mid',  sunShadowSize: 2048, windowShadowSize: 1024, lampShadowSize: 512,  screenShadowSize: 1024, pmremEverySec: 20,       godrays: true,  godraySamples: 16, gtaoSamples: 12, bloom: true, smaa: true, pixelRatioCap: 1.25, shadowUpdateEvery: 12, textureAnisotropy: 4, hearthTongues: 9,  hearthRows: 7, hearthEmbers: 16, hearthPigmentSamples: 1 },
+  low:  { tier: 'low',  sunShadowSize: 1024, windowShadowSize: 512,  lampShadowSize: 512,  screenShadowSize: 1024, pmremEverySec: Infinity, godrays: false, godraySamples: 0,  gtaoSamples: 8,  bloom: true, smaa: true, pixelRatioCap: 1.0,  shadowUpdateEvery: 16, textureAnisotropy: 2, hearthTongues: 6,  hearthRows: 6, hearthEmbers: 10, hearthPigmentSamples: 1 },
 };
 
 function readForcedTier() {

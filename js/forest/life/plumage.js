@@ -60,16 +60,27 @@ export function paintBird(sheet, look) {
 
   // ---- head and body: the skin is laid out with the bill at the left, and goes right round the body: the
   // left side's belly at the top, the back along the middle, the right side's belly at the bottom
-  const body = outline(shape), span = body.front - body.rear, at = new THREE.Vector3();
+  const body = outline(shape), span = body.front - body.rear;
   cell(CELLS.skin, (w, h) => {
     const rules = P.body, pick = (p) => { let hit = rules[0]; for (const rule of rules) if (!rule.where || rule.where(p)) hit = rule; return hit; };
     // the way round takes up the cell less a margin at top and bottom, into which the paint repeats
     const edge = SKIN_EDGE * h, lap = h - 2 * edge;
+    // The paint is laid column by column. One section of the loft supplies every
+    // feather in that column, including the field marks on either side of the head.
+    const point = { x: 0, y: 0, a: 0 };
+    let columnX = NaN, top, bottom, middle;
     const probe = (cx, cy) => {
+      if (cx !== columnX) {
+        columnX = cx;
+        point.x = body.front - (Math.min(w, Math.max(0, cx)) / w) * span;
+        top = body.top(point.x); bottom = body.bottom(point.x);
+        middle = bottom + (top - bottom) * shape.widest;
+      }
       const t = ((((cy - edge) / lap) % 1) + 1) % 1;
-      const x = body.front - (Math.min(w, Math.max(0, cx)) / w) * span, a = 1 - Math.abs(1 - 2 * t);
-      body.surface(x, a, at);
-      return { x, y: at.y, a };
+      point.a = 1 - Math.abs(1 - 2 * t);
+      const c = Math.cos(Math.PI * point.a);
+      point.y = middle - c * (c > 0 ? middle - bottom : top - middle);
+      return point;
     };
     // where on the sheet a place `a` of the way from belly to back is, on the right side and on the left
     const rows = (a) => [edge + (1 - a / 2) * lap, edge + (a / 2) * lap];
@@ -77,14 +88,26 @@ export function paintBird(sheet, look) {
     const round = (x) => { const deep = (body.top(x) - body.bottom(x)) / 2, wide = body.half(x); return lap / (2 * Math.PI * Math.sqrt((deep * deep + wide * wide) / 2)); };
     const along = w / span;
     // a ground coat, so no bare canvas shows between feathers
-    for (let cx = 0; cx < w; cx += 8) for (let cy = 0; cy < h; cy += 8) { ctx.fillStyle = css(pick(probe(cx + 4, cy + 4)).colour); ctx.fillRect(cx, cy, 9, 9); }
+    for (let cx = 0; cx < w; cx += 8) {
+      let start = 0, colour = pick(probe(cx + 4, 4)).colour;
+      for (let cy = 8; cy < h; cy += 8) {
+        const next = pick(probe(cx + 4, cy + 4)).colour;
+        if (next === colour) continue;
+        ctx.fillStyle = css(colour);
+        ctx.fillRect(cx, start, 9, cy - start + 1);
+        start = cy; colour = next;
+      }
+      ctx.fillStyle = css(colour);
+      ctx.fillRect(cx, start, 9, h - start + 1);
+    }
     // feathers from the tail end forwards, so that each lies over the root of the one behind it
     for (let cx = w + 20; cx > -30;) {
       const x = body.front - (Math.min(w, Math.max(0, cx)) / w) * span;
+      const pixelsAround = round(x);
       let step = 3;
       for (let cy = edge; cy < h - edge;) {
-        const where = probe(cx + 3 * along, cy), rule = pick(where), size = (typeof rule.size === 'function' ? rule.size(where) : rule.size) ?? 8, long = size * along, wide = size * 0.62 * round(x);
-        const jx = (r() - 0.5) * long * 0.3, jy = (r() - 0.5) * wide * 0.35, slant = (r() - 0.5) * wide * 0.3, seed = Math.floor(r() * 1e9);
+        const where = probe(cx + 3 * along, cy), rule = pick(where), size = (typeof rule.size === 'function' ? rule.size(where) : rule.size) ?? 8, long = size * along, wide = size * 0.62 * pixelsAround;
+        const jx = (r() - 0.5) * long * 0.3, jy = (r() - 0.5) * wide * 0.35, slant = wide * ((r() - 0.5) * 0.3 - 0.62 * Math.sin(2 * Math.PI * (cy - edge) / lap)), seed = Math.floor(r() * 1e9);
         // The sheet's top and bottom edges meet under the belly. A feather that reaches over one is laid at the
         // other too, the same feather, so that no seam runs down the breast.
         for (const turn of [0, -lap, lap]) {
@@ -126,7 +149,15 @@ export function paintBird(sheet, look) {
   const quill = (x0, y0, x1, y1, width, colours, bars = [], outer = 1) => {
     feather(x0, y0, x1, y1, width, { colour: colours.web, blunt: colours.blunt ?? 0.3, vary: 0.5 });
     const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = (-dy / len) * outer, ny = (dx / len) * outer;
-    // the edging runs down the outer web
+    // A loaded brush leaves a broad shadow on the inner vane and a narrow flash along the
+    // shaft. Both follow the quill; the species' bars and coloured tips go over them.
+    const inner = shift(colours.web, -2, 2, -6);
+    const shaft = shift(colours.web, 2, -8, 9);
+    stroke(ctx, r, x0 + dx * 0.12, y0 + dy * 0.12,
+      x0 + dx * 0.90 - nx * width * 0.14, y0 + dy * 0.90 - ny * width * 0.14,
+      width * 0.36, inner, { ragged: 0.1, taperIn: 0.18, taperOut: 0.55 });
+    stroke(ctx, r, x0 + dx * 0.28, y0 + dy * 0.28, x0 + dx * 0.87, y0 + dy * 0.87,
+      width * 0.085, shaft, { ragged: 0.12, taperIn: 0.16, taperOut: 0.45 });
     if (colours.edge) stroke(ctx, r, x0 + dx * 0.2 + nx * width * 0.36, y0 + dy * 0.2 + ny * width * 0.36, x0 + dx * 0.93 + nx * width * 0.2, y0 + dy * 0.93 + ny * width * 0.2, width * 0.2, vary(colours.edge, r, wobble * 0.4), { ragged, taperIn: 0.2, taperOut: 0.3 });
     for (const [from, to, colour, web = 'outer'] of bars) {
       // 'edge' is the narrow margin of the outer web; 'outer' and 'inner' a whole web; 'both' the feather across
@@ -148,12 +179,14 @@ export function paintBird(sheet, look) {
       // big bird, whose folded wing is a hand deep, they were hairlines. The raptors', 2026-11-16; 1 if not given)
       const X = (t) => t * w, Y = (t, off) => (1 - (off + down(t)) / (up(t) + down(t))) * h, mm = (t) => (h / (up(t) + down(t))) * (W.fold.feather ?? 1);
       const lay = (t0, o0, t1, o1, wide, colours, bars) => quill(X(t0), Y(t0, o0), X(t1), Y(t1, o1), wide * mm((t0 + t1) / 2), colours, bars, 1);
-      fill(w, h, W.web);
+      fill(w, h, shift(W.web, -2, 3, -5));
       const F = W.fold, flight = { web: W.web, edge: W.edge }, n = F.primaries;
+      // Space the tips around the trailing edge; on a closed wing their bases disappear
+      // under the coverts and the long, narrow primaries remain individually legible.
       // primaries: the outermost lies lowest and reaches furthest; each inner one stops a little shorter and higher
       for (let k = 0; k < n; k += 1) {
-        const t1 = 1 - (1 - F.secondaryEnd) * (k / n) * 0.96, o1 = -down(t1) * 0.55 * Math.min(1, k / 2);
-        lay(0.24, -down(0.24) * 0.75, t1, o1, 8.5, flight, k >= W.patchSkip ? W.primaryBars : []);
+        const t1 = 1 - (1 - F.secondaryEnd) * (k / n) * 0.96, o1 = -down(t1) * (0.2 + 0.72 * k / n);
+        lay(0.24, -down(0.24) * (0.45 + 0.45 * k / n), t1, o1, 8.5, flight, k >= W.patchSkip ? W.primaryBars : []);
       }
       // secondaries: stacked above the primaries, ending together
       for (let j = 0; j < F.secondaries; j += 1) {
@@ -244,6 +277,15 @@ export function paintBird(sheet, look) {
     // the lower mandible is the lower half of the cell; its base is at the left
     ctx.fillStyle = css(P.bill.lower); ctx.fillRect(0, h * 0.5, w, h * 0.5);
     if (P.bill.lowerBase) for (let i = 0; i < 6; i += 1) stroke(ctx, r, -w * 0.05, h * (0.56 + 0.07 * i), w * P.bill.lowerBase[1], h * (0.57 + 0.07 * i), h * 0.1, vary(P.bill.lowerBase[0], r, wobble * 0.5), { ragged, taperIn: 0.05, taperOut: 0.5 });
+    if (!shape.bill.duck && !shape.bill.cere) {
+      // A brush along the culmen and a small recessed nostril on either side of its base.
+      stroke(ctx, r, w * 0.06, h * 0.25, w * 0.86, h * 0.25, h * 0.07,
+        shift(P.bill.upper, 1, -5, 9), { taperOut: 0.65, ragged: 0.08 });
+      for (const side of [0.15, 0.35]) {
+        ctx.fillStyle = css(shift(P.bill.upper, 0, 0, -12));
+        ctx.beginPath(); ctx.ellipse(w * 0.23, h * side, w * 0.058, h * 0.025, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
     // (a duck's bill: its ridge, its nail and its nostrils, life/parts/duck.js)
     if (shape.bill.duck) paintDuckBill({ ctx, r, w, h, P: P.bill, D: shape.bill.duck, culmen: shape.bill.culmen, stroke, vary, css, shift, ragged, wobble });
   });
@@ -252,6 +294,9 @@ export function paintBird(sheet, look) {
   cell(CELLS.mouth, (w, h) => fill(w, h, P.mouth));
   cell(CELLS.eye, (w, h) => {
     fill(w, h, P.eye.iris);
+    // The brow shades the top of the iris. A broken warm rim describes its lower curve.
+    ctx.strokeStyle = css(shift(P.eye.iris, 3, 8, 14)); ctx.lineWidth = w * 0.064;
+    ctx.beginPath(); ctx.ellipse(w * 0.5, h * 0.5, w * 0.37, h * 0.36, 0, 0.18, 2.35); ctx.stroke();
     ctx.fillStyle = css(P.eye.pupil); ctx.beginPath(); ctx.arc(w / 2, h / 2, w * 0.3, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = css([210, 30, 92]); ctx.beginPath(); ctx.ellipse(w * 0.4, h * 0.36, w * 0.075, w * 0.05, -0.5, 0, Math.PI * 2); ctx.fill();      // the light of the sky in it
   });

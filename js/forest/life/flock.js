@@ -30,14 +30,18 @@ export function createFlock(kind, makeMaterial, most = 48, { bones = BONES, pupp
     mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; mesh.visible = false;
     return { mesh, rows, count: 0 };
   });
-  let used = 0;
+  let used = 0, warned = false;
   return {
     meshes: levels.map((level) => level.mesh), material, texture,
     begin() { used = 0; for (const level of levels) level.count = 0; },
     // one animal at a detail level: where its feet grip, how it is turned, how it holds itself. False if the
     // texture has no row left for it.
     add(at, q, pose, level) {
-      if (used >= most) return false;
+      if (used >= most) {
+        // (the page sizes a kind's rows from the visit's census: an animal left undrawn here is a fault to be heard)
+        if (!warned) { warned = true; console.warn(`flock: no row left for one more ${kind.key || 'animal'} (${most} rows)`); }
+        return false;
+      }
       puppet.group.position.copy(at); puppet.group.quaternion.copy(q);
       puppet.pose(pose);
       puppet.group.updateMatrixWorld(true);

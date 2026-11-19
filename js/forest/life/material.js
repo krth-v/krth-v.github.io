@@ -33,7 +33,10 @@ const FLOCK_VERT = /* glsl */`
     return mat4(texelFetch(uBones, ivec2(x, y), 0), texelFetch(uBones, ivec2(x + 1, y), 0), texelFetch(uBones, ivec2(x + 2, y), 0), texelFetch(uBones, ivec2(x + 3, y), 0));
   }
   void main() {
-    mat4 skin = skinWeight.x * bone(skinIndex.x) + skinWeight.y * bone(skinIndex.y) + skinWeight.z * bone(skinIndex.z) + skinWeight.w * bone(skinIndex.w);
+    mat4 skin = skinWeight.x * bone(skinIndex.x);
+    if (skinWeight.y != 0.0) skin += skinWeight.y * bone(skinIndex.y);
+    if (skinWeight.z != 0.0) skin += skinWeight.z * bone(skinIndex.z);
+    if (skinWeight.w != 0.0) skin += skinWeight.w * bone(skinIndex.w);
     vec4 wp = skin * vec4(position, 1.0);
     vWorld = wp.xyz;
     vNormal = normalize(mat3(skin) * normal);

@@ -119,7 +119,7 @@ export function createPost(renderer, U, opts) {
   const hdr = (w, h, extra = {}) => new THREE.WebGLRenderTarget(Math.max(1, w), Math.max(1, h),
     { type: THREE.HalfFloatType, depthBuffer: false, ...extra });
 
-  let scale = 1;
+  let scale = 1, requestedScale = 1, useBudget = true;
   // three.js resolves a multisampled target's depth along with its colour, so a
   // depth texture here gives the shafts the scene's depth without another pass.
   const sceneTarget = hdr(4, 4, { depthBuffer: true, samples: opts.msaa });
@@ -164,27 +164,30 @@ export function createPost(renderer, U, opts) {
     shaftGain = look.mist.shafts;
   }
 
-  // `width`, `height`: the size to draw at, where it is not the drawing buffer's (js/outside.js draws only the part
-  // of the view the cabin's window shows, into targets of that part's size)
-  let fixed = false;
-  function resize(width = null, height = null) {
-    fixed = width != null;
-    if (fixed) size.set(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
-    else renderer.getDrawingBufferSize(size);
-    const w = size.x, h = size.y;
-    sceneTarget.setSize(Math.round(w * scale), Math.round(h * scale));
+  function sizeTargets() {
+    const limit = useBudget && opts.scenePixels
+      ? Math.min(1, Math.sqrt(opts.scenePixels / Math.max(1, size.x * size.y))) : 1;
+    scale = limit * requestedScale;
+    const w = Math.max(1, Math.round(size.x * scale)), h = Math.max(1, Math.round(size.y * scale));
+    sceneTarget.setSize(w, h);
     shaftTarget.setSize(Math.ceil(w / 4), Math.ceil(h / 4));
-    bloom[0].setSize(Math.ceil(w / 4), Math.ceil(h / 4)); bloom[1].setSize(Math.ceil(w / 4), Math.ceil(h / 4));
-    bloom[2].setSize(Math.ceil(w / 8), Math.ceil(h / 8)); bloom[3].setSize(Math.ceil(w / 8), Math.ceil(h / 8));
-    soft[0].setSize(Math.ceil(w / 4), Math.ceil(h / 4)); soft[1].setSize(Math.ceil(w / 4), Math.ceil(h / 4));
-    soft[2].setSize(Math.ceil(w / 8), Math.ceil(h / 8)); soft[3].setSize(Math.ceil(w / 8), Math.ceil(h / 8));
-    finalMat.uniforms.uShaftTexel.value.set(4 / w, 4 / h);
+    for (const chain of [bloom, soft]) {
+      chain[0].setSize(Math.ceil(w / 4), Math.ceil(h / 4)); chain[1].setSize(Math.ceil(w / 4), Math.ceil(h / 4));
+      chain[2].setSize(Math.ceil(w / 8), Math.ceil(h / 8)); chain[3].setSize(Math.ceil(w / 8), Math.ceil(h / 8));
+    }
+    finalMat.uniforms.uShaftTexel.value.set(1 / shaftTarget.width, 1 / shaftTarget.height);
   }
-  function setScale(next) {
-    if (Math.abs(next - scale) < 0.001) return;
-    scale = next;
-    if (!fixed) renderer.getDrawingBufferSize(size);
-    sceneTarget.setSize(Math.round(size.x * scale), Math.round(size.y * scale));
+  // The cabin supplies the size of the visible window. The standalone page uses the drawing buffer.
+  function resize(width = null, height = null) {
+    if (width != null) size.set(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
+    else renderer.getDrawingBufferSize(size);
+    sizeTargets();
+  }
+  function setScale(next, budgeted = true) {
+    if (next === requestedScale && budgeted === useBudget) return;
+    requestedScale = next;
+    useBudget = budgeted;
+    sizeTargets();
   }
 
   const draw = (material, target) => {

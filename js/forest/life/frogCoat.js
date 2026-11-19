@@ -1,4 +1,5 @@
-import { makeCanvas, css, shift, mix, rng, dab, cutoutTexture } from '../paint/brush.js';
+import { pressSpot } from './skinPaint.js';
+import { makeCanvas, shift, mix, rng, cutoutTexture } from '../paint/brush.js';
 import { FROG_SHEET, FCELLS } from './frog.js';
 
 // A frog's or a toad's paint: one sheet for the whole animal (life/frog.js lays its cells out), painted when the page
@@ -74,7 +75,9 @@ export function paintFrog(sheet, built, look) {
     built.surface.trunk(u, v * 2, p);
     let c = ruled(C.body, p);
     if (mouth && p.t > mouth.from && Math.abs(p.a - mouth.a) < 0.012) c = mouth.colour;
-    return shift(c, 0, 0, (p.n2(60) - 0.5) * 5);
+    // Catch the top of a skin fold with a lighter stroke, leaving its lower edge dark.
+    const fold = Math.min(1, p.bump * 26);
+    return shift(c, fold * 2, -fold * 4, fold * 7 + (p.n2(60) - 0.5) * 5);
   });
   const limb = (hind) => (u, v) => {
     const th = u * Math.PI * 2, under = (1 - Math.cos(th)) / 2, c = Math.cos(th), s = Math.sin(th), lane = hind ? 3 : 7;
@@ -113,13 +116,13 @@ export function paintFrog(sheet, built, look) {
         const t = r(), a = r() * 2, sym = a <= 1 ? a : 2 - a;
         if (spec.where && !spec.where(t, sym)) continue;
         const size = (spec.size[0] + (spec.size[1] - spec.size[0]) * r()) * w;
-        dab(ctx, x0 + t * w, y0 + (a / 2) * h, size, spec.colour, spec.alpha ?? 0.9, squash * (spec.long ? 1.6 : 1), r() * 6);
+        pressSpot(ctx, x0 + t * w, y0 + (a / 2) * h, size, spec.colour, spec.alpha ?? 0.9, squash * (spec.long ? 1.6 : 1), r() * 6);
       }
     }
     ctx.restore();
   }
   const texture = cutoutTexture(canvas, { anisotropy: 4 });
-  void look; void css;
+  void look;
   return { texture, canvas };
 }
 const smoothStep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };

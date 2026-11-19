@@ -71,7 +71,11 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
   // cast's two, or the kinds about on this visit (the census, drawn again, the same, by the visit itself). Built at
   // every load, fifty species would take seconds. A kind whose plan is not drawn yet is not built.
   const cast = count != null;
-  const met = new Set(cast ? ['varied-thrush', 'brown-creeper'] : census(seed, hour, { busy, roll: ROLL }).about.map(({ key }) => key));
+  // Only the animals drawn by this visit can ever occupy a row of a species' bone texture.
+  const population = cast
+    ? new Map(['varied-thrush', 'brown-creeper'].map(key => [key, Math.ceil(count / 2)]))
+    : new Map(census(seed, hour, { busy, roll: ROLL }).about.map(({ key, parties }) =>
+      [key, parties.reduce((sum, size) => sum + size, 0)]));
   const kinds = {};
   // (the other of a pair, by its kind's key: a sheet is one plumage, and a sheet with a `mate` is two, life/bodies.js)
   const mates = {};
@@ -79,12 +83,13 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
   const share = { calls: Infinity, solid: Infinity, others: { calls: 0, solid: 0 }, own: 0, passes: 0, cap: null, ceiling: null, guard: true, jumped: false, kinds: 0, used: { calls: 0, solid: 0 }, left: [], coarser: [], split: [], levels: {} };
   for (const [key, sheet] of Object.entries(SPECIES)) {
     const plan = planOf(sheet);
-    if (plan.undrawn || !met.has(key) || !LIVES[key]) continue;            // (nor one that has no way of living yet)
+    if (plan.undrawn || !population.has(key) || !LIVES[key]) continue;            // (nor one that has no way of living yet)
+    const capacity = Math.max(1, Math.min(48, population.get(key)));
     const kind = plan.build(sheet);
     yield `life: ${key} built`;
     const painted = plan.paint(sheet, look, kind);
     // every animal of a kind is drawn together, a draw call to each detail level in use (life/flock.js)
-    const flock = createFlock(kind, (bones) => createAnimalMaterial(U, painted.texture, { msaa: settings.msaa, bones }), 48, { bones: plan.bones, puppet: plan.puppet });
+    const flock = createFlock(kind, (bones) => createAnimalMaterial(U, painted.texture, { msaa: settings.msaa, bones }), capacity, { bones: plan.bones, puppet: plan.puppet });
     scene.add(...flock.meshes);
     // (how far each level is drawn, a metre of the animal's length: REACH, nearer for a level heavier than a small bird's)
     const reach = [REACH[0] * Math.min(1, Math.sqrt(DENSE[0] / kind.triangles[0])), REACH[1] * Math.min(1, Math.sqrt(DENSE[1] / kind.triangles[1])), REACH[2]];
@@ -97,7 +102,7 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
     // flock, the duck was a small drake.
     if (sheet.mate) {
       const other = plan.paint({ ...sheet, plumage: sheet.mate.plumage }, look, kind);
-      const pair = createFlock(kind, (bones) => createAnimalMaterial(U, other.texture, { msaa: settings.msaa, bones }), 48, { bones: plan.bones, puppet: plan.puppet });
+      const pair = createFlock(kind, (bones) => createAnimalMaterial(U, other.texture, { msaa: settings.msaa, bones }), capacity, { bones: plan.bones, puppet: plan.puppet });
       scene.add(...pair.meshes);
       mates[key] = { ...kinds[key], key: `${key}, ${sheet.mate.shown}`, texture: other.texture, flock: pair, framed: [], mate: true };
       yield `life: ${key}, the ${sheet.mate.shown}, painted`;

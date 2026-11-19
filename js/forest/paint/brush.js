@@ -25,6 +25,9 @@ export const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) 
 // A colour nudged at random, the way a loaded brush varies from stroke to stroke.
 export const vary = (c, r, amount = 1) => shift(c, (r() - 0.5) * 8 * amount, (r() - 0.5) * 10 * amount, (r() - 0.5) * 9 * amount);
 
+// A stroke is finished synchronously, so every atlas can reuse the two edges of its ribbon.
+let leftEdge = new Float64Array(256), rightEdge = new Float64Array(256);
+
 // One brush stroke from (x0, y0) to (x1, y1): a ribbon that swells and tapers,
 // with slightly ragged edges. `bend` bows it sideways; `ragged` roughens each
 // edge step by step and `lumpy` swells and pinches it slowly along the stroke.
@@ -33,7 +36,12 @@ export function stroke(ctx, r, x0, y0, x1, y1, width, colour, { bend = 0, ragged
   const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1;
   const nx = -dy / len, ny = dx / len;
   const steps = Math.max(4, Math.round(len / 3));
-  const left = [], right = [];
+  const coordinates = (steps + 1) * 2;
+  if (coordinates > leftEdge.length) {
+    leftEdge = new Float64Array(coordinates * 2);
+    rightEdge = new Float64Array(coordinates * 2);
+  }
+  const left = leftEdge, right = rightEdge;
   const knots = Math.max(2, Math.round(len / 70)), lumps = [[], []];
   if (lumpy > 0) for (let k = 0; k <= knots; k += 1) { lumps[0].push((r() - 0.5) * 2 * lumpy); lumps[1].push((r() - 0.5) * 2 * lumpy); }
   const lump = (edge, t) => {
@@ -43,12 +51,15 @@ export function stroke(ctx, r, x0, y0, x1, y1, width, colour, { bend = 0, ragged
   };
   for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
-    const bow = Math.sin(Math.PI * t) * bend * len;
+    const bow = bend ? Math.sin(Math.PI * t) * bend * len : 0;
     const cx = x0 + dx * t + nx * bow, cy = y0 + dy * t + ny * bow;
     const swell = Math.min(1, t / Math.max(taperIn, 0.001)) * Math.min(1, (1 - t) / Math.max(taperOut, 0.001));
     const half = 0.5 * width * Math.sqrt(Math.max(swell, 0)), hl = half * lump(lumps[0], t), hr = half * lump(lumps[1], t);
-    left.push(cx + nx * hl * (1 + (r() - 0.5) * ragged * 2), cy + ny * hl * (1 + (r() - 0.5) * ragged * 2));
-    right.push(cx - nx * hr * (1 + (r() - 0.5) * ragged * 2), cy - ny * hr * (1 + (r() - 0.5) * ragged * 2));
+    const j = i * 2;
+    left[j] = cx + nx * hl * (1 + (r() - 0.5) * ragged * 2);
+    left[j + 1] = cy + ny * hl * (1 + (r() - 0.5) * ragged * 2);
+    right[j] = cx - nx * hr * (1 + (r() - 0.5) * ragged * 2);
+    right[j + 1] = cy - ny * hr * (1 + (r() - 0.5) * ragged * 2);
   }
   // Each edge point is written as the midline plus the half-width, not as the edge itself. The two differ in
   // the last bit now and then, which moves a few pixels of a bough sheet by one level: the sheets the owner
@@ -104,6 +115,7 @@ export function* cutoutTextureSteps(canvas, { cutoff = 0.5, anisotropy = 2 } = {
   bleed(base.data);
   yield 'mip 0';
   const mipmaps = [base];
+  const alphaCounts = new Uint32Array(256);
   let source = canvas;
   for (let w = canvas.width, h = canvas.height; w > 1 || h > 1;) {
     w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
@@ -111,12 +123,14 @@ export function* cutoutTextureSteps(canvas, { cutoff = 0.5, anisotropy = 2 } = {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(source, 0, 0, w, h);
     const image = ctx.getImageData(0, 0, w, h);
-    // scale alpha until this level covers as much as the full-size one (bisection)
+    // An alpha histogram gives the same coverage as scanning the mip at each bisection.
+    alphaCounts.fill(0);
+    for (let i = 3; i < image.data.length; i += 4) alphaCounts[image.data[i]]++;
+    for (let i = 254; i >= 0; i--) alphaCounts[i] += alphaCounts[i + 1];
     let lo = 1, hi = 6;
     for (let k = 0; k < 10 && want > 0; k += 1) {
       const mid = (lo + hi) / 2;
-      let n = 0;
-      for (let i = 3; i < image.data.length; i += 4) if (image.data[i] * mid >= cutoff * 255) n += 1;
+      const n = alphaCounts[Math.ceil(cutoff * 255 / mid)] || 0;
       if (n / (image.data.length / 4) < want) lo = mid; else hi = mid;
     }
     for (let i = 3; i < image.data.length; i += 4) image.data[i] = Math.min(255, image.data[i] * hi);

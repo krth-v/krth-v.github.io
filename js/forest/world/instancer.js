@@ -26,13 +26,11 @@ const LEAST = 0.1;          // smaller than this share of its size, a plant is n
 // stretch one behind another in a thin strip of the frame; a slope that faces the walker stands them one
 // above another all the way up it, and the same change shows several times as much there. A plant whose
 // number is 0, which is every plant of the old terrace, is packed by the arithmetic it always was.
-// A view narrower than the walker's is a long lens (the close-up of an animal, and the way into one and out
-// of it), and through one each plant is tested against the view on its own: see update(). The wind moves a
-// vertex a quarter of a metre at most (forestWorld in light/shared.js); a plant is taken to reach twice that
-// beyond its own geometry.
-const LENS = 0.999, STRAY = 0.5;
+// The wind can move a vertex a quarter of a metre (forestWorld in light/shared.js).
+// Leave twice that on the single-plant bounds used at a frustum edge.
+const STRAY = 0.5;
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
-const _up = new THREE.Vector3(0, 1, 0), _sphere = new THREE.Sphere();
+const _up = new THREE.Vector3(0, 1, 0), _cellCentre = new THREE.Vector3();
 const byDistance = (a, b) => a.d - b.d;
 
 // How far a kind's geometry reaches from its root at scale 1: sideways, down and up. The roots count as
@@ -61,6 +59,7 @@ export class InstanceSet {
   // and `gone`, this device uses (budget.js).
   constructor({ archetype, records, materials, scene, hand = 1, tail = 1, slope = null }) {
     this.name = archetype.name;
+    this.projectedShade = !!archetype.shade;
     this.lod = archetype.lod;
     this.max = archetype.max;
     this.gone = archetype.max + (archetype.gone - archetype.max) * tail;
@@ -193,18 +192,12 @@ export class InstanceSet {
   // It pulls the limit in too: a plant's distance for `max` and `gone` is the distance
   // as seen. By the true distance, the sorrel round a thrush 25 m away was part-size
   // or missing in a close-up of the thrush.
-  // A long lens takes in a sliver of the forest, and cells are 16 m across: packed cell by
-  // cell, a close-up drew every tree of every cell along its line of sight, at its finest
-  // level because the lens brings it near, which was twice the triangles a walker's view is
-  // allowed. Through a long lens each plant is tested against the view instead: it is the
-  // upright capsule that holds everything it reaches (`span`, at its scale, and what the wind
-  // adds), and it is left out only if the whole of that lies beyond one of the view's six
-  // planes. That can keep a plant which does not show; it cannot drop one which does.
-  // `each` false packs a long lens's view cell by cell all the same: the close-up check
-  // (dev.js) draws a frame both ways, and the two must be the same to the last pixel.
+  // Cells crossing a frustum plane get a finer test against each plant's upright
+  // bounds, including its roots, sway and ground shear. Cells wholly in view can
+  // still copy a level at once. The close-up check sets each=false for its reference.
   update(eye, frustum, zoom, lodScale, each = true) {
     const { matrix, extra, pos, parts, scale, span, late, tilt } = this;
-    const lens = each && zoom < LENS, planes = frustum.planes;
+    const planes = frustum.planes;
     const cx = eye.x, cy = eye.y, cz = eye.z;
     const full = this.max, gone = this.gone;
     // What the vertex shader is told (forestPlace in light/shared.js): `still`, which is 1 for a plant at
@@ -226,11 +219,20 @@ export class InstanceSet {
     const visible = this.visible;
     visible.length = 0;
     for (const cell of this.cells) {
-      _sphere.center.set(cell.x, cell.cy, cell.z);
-      _sphere.radius = cell.r;
+      _cellCentre.set(cell.x, cell.cy, cell.z);
       cell.d = Math.hypot(cell.x - cx, cell.z - cz);
       if ((cell.d - this.cellRadius) * zoom > gone) continue;
-      if (!frustum.intersectsSphere(_sphere)) continue;
+      // Interior cells still copy as one block. At the silhouette only test the planes that
+      // cut the cell, so the GPU can skip individual plants outside the viewport.
+      let mask = 0, outside = false;
+      for (let k = 0; k < 6; k++) {
+        const d = planes[k].distanceToPoint(_cellCentre);
+        if (d < -cell.r) { outside = true; break; }
+        if (d < cell.r) mask |= 1 << k;
+      }
+      if (outside) continue;
+      // A stone's shadow can extend past its measured mesh at low sun.
+      cell.clip = each && !this.projectedShade ? mask : 0;
       visible.push(cell);
     }
     visible.sort(byDistance);
@@ -248,7 +250,7 @@ export class InstanceSet {
         else if (last === 0 || b < d0) rest = 0;
         else if (a >= (cell.late ? d0 + (p.e0 - d0) * (1 + cell.late) : p.e0) && (last === 1 || b < d1)) rest = 1;
         else if (last === 2 && a >= p.e1) rest = 2;
-        if (rest >= 0 && !lens) {
+        if (rest >= 0 && !cell.clip) {
           const level = levels[rest];
           level.matrix.array.set(cell.matrix, level.used * 16);
           level.extra.array.set(cell.extra, level.used * 4);
@@ -258,7 +260,7 @@ export class InstanceSet {
         }
         for (let i = cell.start, end = cell.start + cell.count; i < end; i += 1) {
           const dx = pos[i * 3] - cx, dy = pos[i * 3 + 1] - cy, dz = pos[i * 3 + 2] - cz;
-          if (lens) {
+          if (cell.clip) {
             const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2], s = scale[i];
             // a plant that lies as the ground does is sheared by the ground's slope (above): an end of it stands
             // that much higher, and the other that much lower, than its geometry says (a drift log 12 m long, on a bank)
@@ -266,6 +268,7 @@ export class InstanceSet {
             const low = y + span.low * s - lift, high = y + span.high * s + lift, r = span.spread * s + STRAY;
             let k = 0;
             for (; k < 6; k += 1) {
+              if (!(cell.clip & (1 << k))) continue;
               const n = planes[k].normal;                                        // it points into the view
               if (n.x * x + n.z * z + planes[k].constant + n.y * (n.y > 0 ? high : low) < -r) break;
             }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { detectCaps } from '../caps.js';
-import { solarState, currentHour } from '../solar.js';
+import { solarState, currentHour, currentSolarState } from '../solar.js';
 import { createForest, layOut, SCENES } from './index.js';
 import { createGpuTimer, forestSettings, CEILINGS } from './budget.js';
 
@@ -121,7 +121,7 @@ function start() {
     if (gpu) gpu.begin();
     try {
       told += dt * slow;
-      forest.frame(slow === 1 ? clock.getElapsedTime() : told, dt * slow, solarState(currentHour()));
+      forest.frame(slow === 1 ? clock.getElapsedTime() : told, dt * slow, currentSolarState());
     } catch (error) {
       // a frame that throws would throw again sixty times a second: stop, say why on the page, and let a waiting walk go
       cancelAnimationFrame(next);
@@ -195,7 +195,7 @@ function start() {
       // a scripted pose moves the walker: where they stood is put back afterwards, not only the script
       const state = forest.nav.state, before = { s: state.s, yaw: state.yaw, pitch: state.pitch, speed: state.speed, push: state.push, auto: state.auto };
       try {
-        const cfg = solarState(currentHour());
+        const cfg = currentSolarState();
         const W = canvas.width, H = canvas.height, a = new Uint8Array(W * H * 4), b = new Uint8Array(W * H * 4);
         const pose = (along) => ({ s: along, yaw: THREE.MathUtils.degToRad(yaw), pitch: THREE.MathUtils.degToRad(pitch) });
         state.auto = pose(s + step);
@@ -245,17 +245,15 @@ function start() {
       state.auto = pose(s);
       forest.measureFrom(from);
       // the frame stays on the canvas and the page stays held, unless drawing it fails: then the page is let go
-      try { forest.frame(at, 0, solarState(currentHour())); } catch (error) { held = false; state.auto = null; throw error; } finally { forest.measureFrom(null); }
+      try { forest.frame(at, 0, currentSolarState()); } catch (error) { held = false; state.auto = null; throw error; } finally { forest.measureFrom(null); }
     },
-    // What a close-up leaves out. Through a long lens each plant is tested against the view on its own
-    // (world/instancer.js), and a plant left out wrongly would be a hole in the picture. The frame is drawn
-    // twice from the camera as it stands, clock stopped: with every plant of every cell in view, as a
-    // walker's view is packed, and with each plant tested. `differ` is how many pixels are not the same in
+    // Check plant culling at the current field of view. Draw twice with the clock stopped, first
+    // with every plant in the visible cells, then with the normal per-plant frustum tests. `differ` is how many pixels are not the same in
     // the two, which should be none; `all` and `tested` are what each of them held.
     closeUp({ at = 40 } = {}) {
       held = true;
       try {
-        const cfg = solarState(currentHour());
+        const cfg = currentSolarState();
         const W = canvas.width, H = canvas.height, a = new Uint8Array(W * H * 4), b = new Uint8Array(W * H * 4);
         const shot = (each, into) => {
           forest.testEach(each);
@@ -282,7 +280,7 @@ function start() {
       if (!bird) return null;
       held = true;
       try {
-        const cfg = solarState(currentHour());
+        const cfg = currentSolarState();
         const W = canvas.width, H = canvas.height, a = new Uint8Array(W * H * 4), b = new Uint8Array(W * H * 4);
         forest.frame(at, 0, cfg);
         gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, a);

@@ -608,9 +608,11 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
   // put. What differs between two such frames is what would pop over that stretch of walking, and
   // nothing else: the view has not moved.
   let measuredFrom = null;
-  // The close-up check (dev.js) draws a close-up with every plant of every cell in view, the way a walker's
-  // view is packed, to compare with the frame in which each plant is tested against the view (InstanceSet.update).
+  // The close-up check compares whole visible cells with per-plant culling at the same camera pose.
   let eachPlant = true;
+  // Plant motion is in the shader. Only the view and detail-selection inputs affect these buffers.
+  const packedProjection = new THREE.Matrix4(), packedEye = new THREE.Vector3();
+  let packedScale, packedZoom, packedEach, packedHide = '';
 
   // Call after renderer.setSize: the render targets take their size from the drawing buffer.
   function setSize(width, height) {
@@ -695,11 +697,23 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
       last.sunMapRedrawn = sunMap.update(renderer, scene);
 
       viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-      frustum.setFromProjectionMatrix(viewProjection);
       const zoom = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / REFERENCE;
       const t0 = performance.now();
-      for (const set of sets) set.update(measuredFrom || camera.position, frustum, zoom, settings.lodScale, eachPlant);
-      if (hide) for (const set of sets) if (hide.includes(set.name)) for (const level of set.levels) for (const mesh of level.meshes) mesh.visible = false;
+      const eye = measuredFrom || camera.position, hidden = hide ? hide.join(',') : '';
+      if (!packedProjection.equals(viewProjection) || !packedEye.equals(eye) ||
+          packedScale !== settings.lodScale || packedZoom !== zoom || packedEach !== eachPlant || packedHide !== hidden) {
+        frustum.setFromProjectionMatrix(viewProjection);
+        terrain.cull(frustum);
+        for (const set of sets) {
+          set.update(eye, frustum, zoom, settings.lodScale, eachPlant);
+          if (hide && hide.includes(set.name)) {
+            for (const level of set.levels) for (const mesh of level.meshes) mesh.visible = false;
+          }
+        }
+        packedProjection.copy(viewProjection);
+        packedEye.copy(eye);
+        packedScale = settings.lodScale; packedZoom = zoom; packedEach = eachPlant; packedHide = hidden;
+      }
       const t1 = performance.now();
       post.render(scene, camera, into);
       last.packMs = t1 - t0;                 // choosing and packing instances (script only)
@@ -714,7 +728,7 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
 
   // What the walker's view is drawing right now, split the way the budget is.
   function stats() {
-    let solid = ground.geometry.index.count / 3 + life.triangles(), foliage = 0, instances = 0;
+    let solid = ground.geometry.drawRange.count / 3 + life.triangles(), foliage = 0, instances = 0;
     for (const water of waters) solid += water.geometry.index.count / 3;
     solid += structures.geometry.getAttribute('position').count / 3 + (lamp.visible ? lamp.geometry.getAttribute('position').count / 3 : 0);
     for (const set of sets) {
@@ -745,7 +759,8 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
   }
 
   return { scene, camera, nav, trail, terrain, places: built.places, settings, look, frame, setSize, stats, dispose,
-    setScale: (s) => { governed = false; post.setScale(s); }, setGoverned: (on) => { governed = on; },
+    setScale: (s) => { governed = false; post.setScale(s, false); },
+    setGoverned: (on) => { governed = on; if (on) post.setScale(governor.scale); },
     measureFrom: (position) => { measuredFrom = position; }, testEach: (on) => { eachPlant = on; }, post, light, life, sound,
     // (for the tools: where the plants of a kind stand, as the instancer has them: x, y, z of each, its scale, and its phase and tint)
     plantsOf: (name) => { const set = sets.find((one) => one.name === name); return set ? { count: set.count, pos: set.pos, scale: set.scale, extra: set.extra } : null; },

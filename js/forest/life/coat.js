@@ -108,7 +108,10 @@ export function paintCoat(sheet, built, look) {
   fill(BCELLS.ear, (u, v) => {
     const inner = u >= 0.5, across = Math.abs(((u % 0.5) / 0.5) * 2 - 1), up = 1 - v;
     const c = inner ? C.ear.inner : C.ear.outer;
-    return across > 0.86 || up > 0.93 ? C.ear.edge : inner && across > 0.7 ? mix(c, C.ear.edge, 0.5) : c;
+    if (across > 0.86 || up > 0.93) return C.ear.edge;
+    if (!inner) return c;
+    const bowl = (1 - across * across) * Math.sin(Math.PI * up);
+    return shift(c, -3 * bowl, 5 * bowl, -15 * bowl + 4 * across);
   });
   fill(BCELLS.tail, (u, v) => (Math.abs(u - 0.5) < 0.22 ? C.tail.top : C.tail.under));
   if (C.antler) fill(BCELLS.antler, (u) => mix(C.antler, shift(C.antler, 0, -4, 8), Math.max(0, (u % 0.62) / 0.62 - 0.8) * 4));
@@ -130,13 +133,20 @@ export function paintCoat(sheet, built, look) {
   // the trunk: back along the body and down its sides; long and dark down the neck where the mane is
   const fur = C.fur ?? 1;
   clip(BCELLS.trunk, () => {
-    const count = 5200;
+    // Block the shoulder, flank and haunch with a broad flat brush before the guard
+    // hairs. Pull the flank rearward and let the brush turn down over the shoulder.
+    const count = 3200;
     for (let i = 0; i < count; i += 1) {
       const u = r(), v = r(), p = built.surface.trunk(u, v), [x, y] = at(BCELLS.trunk, u, v);
       const long = C.hair.long(p), len = (long ? 26 + r() * 22 : 9 + r() * 9) * fur, down = v < 0.5 ? -1 : 1;     // (fur: life/parts/rodentCoat.js)
-      const back = long ? 0.25 : 0.85, dx = -back * len, dy = down * Math.sqrt(1 - back * back) * len * (0.6 + 0.6 * (1 - p.a));
+      const back = long ? 0.25 : 0.58 + 0.32 * Math.sin(Math.PI * u), dx = -back * len, dy = down * Math.sqrt(1 - back * back) * len * (0.6 + 0.6 * (1 - p.a));
       const base = toHsl(sample(x, y)), c = shift(base, (r() - 0.5) * 4, (r() - 0.5) * 8, (r() - 0.5) * 9 + (long ? -3 : 1));
-      stroke(ctx, r, x, y, x + dx, y + dy, long ? 3.2 : 2.2, c, { ragged, taperIn: 0.1, taperOut: 0.7, bend: (r() - 0.5) * 0.2, alpha: 0.8 });
+      const broad = i < count / 3;
+      const width = broad ? (long ? 12 : 7) : (long ? 3.2 : 2.2);
+      const reach = broad ? 1.6 : 1;
+      const pigment = broad ? shift(c, 2, -2, p.a * 9 - 3) : c;
+      stroke(ctx, r, x, y, x + dx * reach, y + dy * reach, width, pigment,
+        { ragged, taperIn: 0.10, taperOut: 0.55, bend: (r() - 0.5) * 0.2, alpha: 0.9 });
     }
   });
   clip(BCELLS.head, () => {

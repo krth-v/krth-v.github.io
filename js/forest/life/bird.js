@@ -160,6 +160,29 @@ export function buildBird(sheet, level = 0) {
   }
   const loftEnd = skin.count;
 
+  // A few overlapping contour feathers turn the smooth loft at the nape and throat.
+  // They take the paint and neck weights of the skin directly underneath. Tuck the
+  // quills into it and lift the rounded tips, keeping a waterbird's plumage sleeker.
+  if (level === 0) {
+    const span = body.front - body.rear;
+    const halfWidths = [0.025, 0.056, 0.014];
+    const tufts = [[0.18, 0.80], [0.24, 0.89], [0.30, 0.82], [0.25, 0.25], [0.31, 0.18], [0.38, 0.27]];
+    for (const side of [1, -1]) for (const [start, around] of tufts) {
+      skin.sheet(2, 2, (i, j, out) => {
+        const t = j / 2, across = i - 1;
+        const x = body.front - span * (start + 0.105 * t - 0.014 * t * Math.abs(across));
+        const a = around + across * halfWidths[j] - 0.045 * t;
+        body.surface(x, a, p);
+        const lift = body.half(x) * (shape.bill.duck ? 0.055 : 0.14) *
+          (t - 0.22) * (1 - 0.32 * Math.abs(across));
+        put(out, x, p.y - lift * Math.cos(Math.PI * a), side * (p.z + lift * Math.sin(Math.PI * a)));
+        const v = side > 0 ? 1 - a / 2 : a / 2;
+        [out.u, out.v] = inCell(CELLS.skin, (body.front - x) / span, SKIN_EDGE + v * (1 - 2 * SKIN_EDGE));
+        out.b0 = B.body; out.b1 = B.head; out.w1 = smooth(neck0, neck1, x);
+      }, { flip: side < 0 });
+    }
+  }
+
   // ---- eyes: a low dome on each side of the head (an owl's are set in its face: life/parts/owl.js)
   if (res.eye && !shape.disc) {
     const { x, y, r } = shape.eye, a = body.around(x, y), centre = body.surface(x, a, new THREE.Vector3());
@@ -244,7 +267,7 @@ export function buildBird(sheet, level = 0) {
     }
   }
 
-  // ---- spread wings: an arm and a hand, flat, each with an upper and an under side
+  // ---- spread wings: an arm and a hand, cambered, each with an upper and an under side
   {
     const [sx, sy, sz] = wing.shoulder, reach = wing.span / 2 - sz, armSpan = wing.arm, handSpan = reach - armSpan;
     const lead = (z) => { const k = Math.max(0, z - armSpan) / handSpan; return wing.lead - wing.sweep * k * k; };          // x of the leading edge, from the shoulder
@@ -255,7 +278,14 @@ export function buildBird(sheet, level = 0) {
           const base = skin.sheet(nz, nx, (i, j, out) => {
             const z = z0 + (z1 - z0) * (i / nz), k = j / nx;
             // the wing is cambered a little: its edges lie lower than the middle of its chord
-            put(out, sx + lead(z) - chordAt(z) * k, sy - (under ? 0.3 : 0) + 2.2 * Math.sin(Math.PI * Math.min(1, k * 1.3)) - 1.2, (sz + z) * side);
+            const along = z / reach;
+            const arch = wing.root * 0.075 * (1 - 0.8 * along) * Math.sin(Math.PI * k);
+            // The wrist carries the span. The outer primaries sweep down from it and twist
+            // out towards the tips; this stays continuous where the arm meets the hand.
+            const wristRise = wing.arm * 0.065 * Math.min(z / armSpan, 1);
+            const primary = Math.max(0, (z - armSpan) / handSpan);
+            const twist = primary * primary * wing.tipChord * (0.22 + 0.16 * k);
+            put(out, sx + lead(z) - chordAt(z) * k, sy + wristRise + arch - twist - (under ? 0.3 : 0), (sz + z) * side);
             [out.u, out.v] = inCell(under ? CELLS.wingUnder : CELLS.wingUp, u0 + (u1 - u0) * (i / nz), k);
             out.b0 = bone;
           }, { flip: (side > 0) !== under });
