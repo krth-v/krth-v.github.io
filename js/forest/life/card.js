@@ -30,7 +30,7 @@ export function createCard() {
       const c = sheet.card;
       card.innerHTML = `<h2>${sheet.name}</h2><p class="latin">${sheet.latin}</p>${note ? `<p class="who">${note}</p>` : ''}<p>${c.size}</p>
         <ul>${c.marks.map((mark) => `<li>${mark}</li>`).join('')}</ul><p>${c.lives}</p>
-        <p class="doing"><span>Right now</span> <b></b></p><p class="hint">Esc, or a click elsewhere, to look away</p>`;
+        <p class="doing"><span>Right now</span> <b></b></p><p class="hint">Click again, or walk on, to look away</p>`;
       said = '';
       this.doing(doing);
       card.classList.add('on');

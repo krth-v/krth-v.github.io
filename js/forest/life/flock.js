@@ -14,6 +14,10 @@ import { createBird } from './rig.js';
 // animal that walks gives its own (life/beast.js, life/beastRig.js).
 export function createFlock(kind, makeMaterial, most = 48, { bones = BONES, puppet: make = createBird } = {}) {
   const puppet = make(kind);
+  // Nothing here reads a bone's Euler angles, and three works them out again on every write to a bone's quaternion
+  // (a rotation matrix and its angles, for up to 42 bones of every animal drawn, every frame): this puppet's bones
+  // do not. (The contact sheets make their own puppets, and turn them by their angles.)
+  puppet.group.traverse((o) => { o.quaternion._onChange(() => {}); });
   const N = bones.length, data = new Float32Array(most * N * 16);
   const texture = new THREE.DataTexture(data, N * 4, most, THREE.RGBAFormat, THREE.FloatType);
   texture.needsUpdate = true;

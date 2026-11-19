@@ -51,7 +51,9 @@ function start() {
   if (params.has('visit') && params.has('birds')) throw new Error('visit= and birds= were both given: the animals are a visit\'s or the cast, not both');
   const caps = detectCaps();
   const canvas = document.getElementById('forest');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  // (the canvas itself is only ever drawn to by the final pass, one triangle with no depth test: it has no depth or
+  // stencil buffer of its own to keep and clear. The scene's depth is its render target's: post.js)
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, caps.pixelRatioCap));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -98,7 +100,7 @@ function start() {
   const gl = renderer.getContext();
   const gpu = createGpuTimer(gl);
   const hud = document.getElementById('hud');
-  if (params.get('hud') === '0') hud.hidden = true;
+  const bare = params.get('hud') === '0';             // (its loading line stays until the first frames are drawn)
   const pixel = new Uint8Array(4);
   const clock = new THREE.Clock();
   let lastNow = performance.now(), smooth = 16.7, frames = 0, run = null, held = false, told = 0;
@@ -147,13 +149,13 @@ function start() {
       run.i += 1;
       if (run.i >= run.frames) { const done = run; run = null; if (!done.still) forest.nav.state.auto = null; done.resolve(summarise(done)); }
     }
-    if (!hud.hidden && frames % 20 === 0) {
+    if (!bare && !hud.hidden && frames % 20 === 0) {
       const s = forest.stats();
       hud.textContent = `${smooth.toFixed(1)} ms  |  ${s.calls} draws  |  ${(s.solid / 1e3).toFixed(0)}k solid + ${(s.foliage / 1e3).toFixed(0)}k foliage tris`
         + `  |  scale ${s.scale.toFixed(2)}  |  tier ${s.settings.tier}  msaa ${s.settings.msaa}  prepass ${s.settings.prepass ? 1 : 0}  shafts ${s.settings.shaftSteps}`
         + (forest.life.visit ? `  |  visit ${forest.life.visit.busy ? 'busy' : forest.life.visit.seed}: ${forest.life.birds.length} here of ${forest.life.visit.who.length}` : `  |  the cast: ${forest.life.birds.length}`);
     }
-    if (!window.__forestReady && frames > 3) window.__forestReady = true;
+    if (!window.__forestReady && frames > 3) { window.__forestReady = true; if (bare) hud.hidden = true; }
   }
 
   const pct = (values, p) => { const a = [...values].sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(a.length * p))]; };
@@ -350,7 +352,10 @@ function start() {
     },
     stats: () => forest.stats(),
   };
-  requestAnimationFrame(loop);
+  // (a painted sheet's pixels are let go once the GPU has them, so the page starts again if the GPU ever loses them)
+  canvas.addEventListener('webglcontextrestored', () => window.location.reload());
+  // every texture sent and every program compiled before the first frame, so that no walk meets one for the first time
+  forest.warm().catch((error) => console.warn(`forest: not warmed (${error && error.message ? error.message : error})`)).then(() => requestAnimationFrame(loop));
 }
 
 // ?show=textures paints the look's textures and lays them out flat, for review.

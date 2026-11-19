@@ -42,17 +42,20 @@ export const published = {
 
 // The coat in the middle of May, as paint: [hue, saturation, lightness]. The pattern is from the sources above; the
 // shades, the moult's patches and where each boundary runs are the agent's.
-const TAN = [31, 30, 50], BACK = [29, 28, 43], DARK = [21, 30, 17], DARKER = [19, 24, 12];
-const CREAM = [39, 36, 74], BORDER = [20, 28, 15], HEAD = [22, 30, 21], MUZZLE = [20, 24, 14], NOSE = [20, 8, 8];
-const GLAND = [32, 22, 40], GLAND_CORE = [38, 14, 62];
-const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const TAN = [32, 36, 47], DARK = [20, 30, 12.5], DARKER = [19, 26, 9.5];
+const CREAM = [39, 38, 72], BORDER = [22, 34, 24], HEAD = [24, 32, 25], MUZZLE = [20, 24, 13], CHIN = [34, 26, 58], NOSE = [20, 8, 7];
+// how far forward the pale rump comes at a height: furthest at the tail's height, narrowing above and below
+const RUMP = (y) => -0.655 - 0.28 * Math.abs(y - 1.12);
+// a field's edge: 0 where `x` is under nothing, 1 where it is over, across `soft` either side of it
+const edge = (x, soft) => { const t = Math.min(1, Math.max(0, (x + soft) / (2 * soft))); return t * t * (3 - 2 * t); };
 
 export default {
   name: 'Roosevelt elk', latin: 'Cervus canadensis roosevelti', key: 'roosevelt-elk', seed: 211,
   // ---- who is about on a visit, how it lives on one and what it says (life/species/index.js says what each is)
-  census: { tier: 'some', source: 'N C', party: [3, 12], clock: 'any' },
-  way: { family: 'herd', there: 0.7, gap: [60, 300], together: true, herd: true },
+  // (a herd on every visit, by day and by night, and now and then two: the owner's living world over the census's
+  // tier, 2026-11-18. A herd is of mixed company, four to eleven: life/beasts.js `castOf`)
+  census: { tier: 'some', source: 'N C', party: [4, 11], clock: 'any', sure: [1, 2] },
+  way: { family: 'herd', there: 0.8, gap: [45, 240], together: true, herd: true },
   // what the herd says (life/beasts.js `world.say`): a cow's bark when it is alarmed, and the mew that keeps a herd together
   voices: {
     bark: { file: 'elk-bark.mp3', level: 0.9, near: 30,
@@ -68,108 +71,162 @@ export default {
   // whether any of it is seen and whether two bodies are in one another: how high its back is, half its length
   // and half its width (m). An adult cow's.
   size: 2.3, body: { high: 1.2, long: 1.1, wide: 0.42 },
-  // The body, in metres, standing square: an adult cow (life/beast.js says what each table is). Every number is the
-  // agent's but the shoulder's height, the humerus, the metatarsal and the hoof's length, which are set inside the
-  // published ranges above; the outline is drawn from memory of photographs of elk, none of them looked at.
+  // One stride of each gait, metres at the cow's size (life/beasts.js `stridesOf`: what the rig sweeps the feet by
+  // and a family runs the stride on by). The agent's own, as they were.
+  strides: { walk: 1.45, trot: 2.8, gallop: 4.6 },
+  // The body, in metres, standing square: an adult cow, drawn as a plate (life/plate.js says what each drawing is).
+  // Every number is the agent's but the shoulder's height, the humerus, the metatarsal and the hoof's length, which
+  // are set inside the published ranges above. Drawn from memory of elk and of field-guide plates of them (no
+  // photograph was looked at): the withers the highest of the back, the croup a little lower and falling to the
+  // tail, the chest deep and the flank tucked up, the neck rising at about 45 degrees, deep where it leaves the
+  // chest; the head long, 0.49 m, its profile straight.
   shape: {
-    // the torso and the neck, rump to head: [top x, top y, bottom x, bottom y, half width, widest at, square]
-    trunk: [
-      [-0.736, 1.165, -0.744, 1.075, 0.045, 0.50, 2.0],      // the rump's end, round the tail's root
-      [-0.708, 1.236, -0.742, 0.935, 0.165, 0.52, 2.05],      // the croup comes down to the tail, and the buttocks round under it
-      [-0.650, 1.288, -0.704, 0.806, 0.228, 0.54, 2.15],      // the buttocks, down to the backs of the thighs
-      [-0.545, 1.328, -0.585, 0.738, 0.262, 0.56, 2.4],      // the haunch: the croup on top, the stifle below
-      [-0.340, 1.360, -0.330, 0.772, 0.255, 0.56, 2.4],      // the flank, tucked up in front of the stifle
-      [-0.120, 1.354, -0.120, 0.726, 0.270, 0.56, 2.3],      // the belly
-      [0.100, 1.372, 0.100, 0.708, 0.276, 0.58, 2.25],       // the girth, behind the elbows
-      [0.300, 1.408, 0.305, 0.730, 0.255, 0.60, 2.3],        // the chest, under the withers
-      [0.440, 1.418, 0.500, 0.767, 0.235, 0.62, 2.3],        // the shoulders
-      [0.505, 1.412, 0.635, 0.822, 0.220, 0.60, 2.25],       // the point of the shoulder
-      [0.560, 1.425, 0.745, 0.950, 0.200, 0.55, 2.2],        // the neck's base and the breast
-      [0.680, 1.480, 0.840, 1.150, 0.160, 0.50, 2.1],
-      [0.800, 1.560, 0.920, 1.290, 0.130, 0.50, 2.0],        // the neck
-      [0.890, 1.645, 0.965, 1.405, 0.105, 0.50, 2.0],
-      [0.935, 1.700, 0.975, 1.520, 0.085, 0.50, 2.0],        // the throat, and the poll behind it
-      [0.965, 1.715, 1.000, 1.560, 0.070, 0.50, 2.0],        // inside the head
-    ],
-    withers: [0.25, 0.5],                                    // where along the back the withers are (m): the shoulder's height is taken there
-    spine: { hips: [-0.32, 1.10], chest: [-0.02, 1.08], neck1: [0.52, 1.02], neck2: [0.70, 1.22], neck3: [0.85, 1.42] },
-    blend: [0.22, 0.12, 0.08, 0.07, 0.06],                    // how far either side of each joint the skin is shared (m)
-    head: {
-      at: [0.975, 1.69], tilt: -50, square: 2.2, jaw: [0.1, -0.055],
-      //          s     up     down   half
-      stations: [[-0.06, 0.050, 0.050, 0.055], [0, 0.065, 0.065, 0.075], [0.06, 0.075, 0.105, 0.088], [0.11, 0.078, 0.125, 0.093],
-        [0.17, 0.074, 0.112, 0.094], [0.25, 0.064, 0.098, 0.074], [0.33, 0.057, 0.088, 0.064], [0.41, 0.053, 0.080, 0.060],
-        [0.47, 0.048, 0.072, 0.057], [0.515, 0.032, 0.055, 0.046]],
-      eye: { s: 0.17, up: 0.035, side: 0.083, r: 0.017 },
-    },
-    ear: { s: 0.055, up: 0.068, side: 0.052, length: 0.2, width: 0.105, out: 52, open: 40 },
-    tail: { at: [-0.730, 1.195], length: 0.13, width: 0.072, depth: 0.036, hang: 10 },
-    // a bull's antlers in the middle of May, in velvet and growing (the agent's own: nothing read gave their size then)
-    antler: {
-      s: 0.075, up: 0.07, side: 0.04, base: 0.03, tip: 0.023,
-      beam: [[0, 0, 0], [-0.03, 0.16, 0.08], [-0.13, 0.34, 0.16], [-0.27, 0.46, 0.17], [-0.38, 0.52, 0.12]],
-      tines: [[0.1, 0.22, 0.85, 0.4, 0.25], [0.2, 0.17, 0.85, 0.3, 0.15], [0.5, 0.09, 0.55, 0.7, 0.05]],          // [along the beam, long, which way]
+    plate: {
+      side: {
+        //     t      x       y
+        top: [[0.0, -0.800, 1.075], [0.3, -0.792, 1.150], [0.6, -0.775, 1.212], [1.0, -0.722, 1.258],        // the buttock's end, up to the tail's root
+          [2.0, -0.540, 1.332], [2.5, -0.410, 1.346], [3.0, -0.250, 1.326],                                    // the croup, the hips the highest of it, the loin
+          [4.0, 0.000, 1.306], [5.0, 0.220, 1.330], [6.0, 0.400, 1.400], [6.5, 0.500, 1.404],                  // the back, rising to the withers
+          [7.0, 0.600, 1.432], [8.0, 0.765, 1.555], [9.0, 0.915, 1.685], [10.0, 1.030, 1.776],                 // the crest of the neck
+          [11.0, 1.100, 1.820], [11.5, 1.156, 1.814], [12.0, 1.216, 1.780],                                    // the poll, the forehead, the brow
+          [13.0, 1.330, 1.690], [14.0, 1.420, 1.606], [14.6, 1.466, 1.560], [15.0, 1.486, 1.526]],             // the face, straight, to the nose
+        bottom: [[0.0, -0.800, 1.055], [0.3, -0.794, 0.975], [0.6, -0.780, 0.905], [1.0, -0.750, 0.845],     // the buttocks, down between the thighs
+          [2.0, -0.560, 0.805], [2.5, -0.420, 0.840], [3.0, -0.250, 0.832],                                    // the groin, the flank tucked up
+          [4.0, 0.000, 0.765], [5.0, 0.220, 0.728], [6.0, 0.420, 0.716], [6.5, 0.550, 0.742],                  // the belly, the girth, the chest's floor
+          [7.0, 0.675, 0.812], [7.5, 0.765, 0.922], [8.0, 0.830, 1.060],                                       // the brisket, and the neck leaving it
+          [9.0, 0.925, 1.295], [10.0, 1.005, 1.468], [11.0, 1.050, 1.566],                                     // the throat
+          [11.5, 1.092, 1.556], [12.0, 1.156, 1.545], [13.0, 1.270, 1.525],                                    // the angle of the jaw, the jaw's line
+          [14.0, 1.375, 1.496], [14.6, 1.430, 1.476], [15.0, 1.468, 1.460]],                                   // the chin, the lips: a blunt muzzle
+      },
+      //        t   half
+      above: [[0, 0.02], [0.3, 0.10], [0.6, 0.155], [1, 0.200], [2, 0.262], [3, 0.280], [4, 0.300], [5, 0.290], [6, 0.250], [7, 0.215],
+        [8, 0.170], [9, 0.135], [10, 0.112], [11, 0.100], [11.5, 0.102], [12, 0.102], [13, 0.076], [14, 0.062], [14.6, 0.056], [15, 0.044]],
+      //        t  wide  over under
+      front: [[0, 0.5, 2.0, 2.0], [1, 0.55, 2.1, 2.0], [2, 0.62, 2.3, 1.9], [3, 0.55, 2.3, 2.2], [4, 0.50, 2.2, 2.3], [5, 0.52, 2.0, 2.1],
+        [6, 0.56, 1.7, 1.8], [7, 0.50, 1.8, 1.8], [8, 0.50, 1.9, 2.0], [9, 0.50, 2.0, 2.1], [10, 0.50, 2.0, 2.1], [11, 0.55, 2.1, 2.0],
+        [11.5, 0.50, 2.2, 1.9], [12, 0.62, 2.3, 1.8], [13, 0.60, 2.2, 1.9], [14, 0.55, 2.3, 2.2], [15, 0.50, 2.4, 2.3]],
+      spine: [['hips', -0.50, 1.13], ['loin', -0.27, 1.15], ['back', 0.0, 1.13], ['chest', 0.25, 1.12],
+        ['neck1', 0.62, 1.14], ['neck2', 0.78, 1.33], ['neck3', 0.93, 1.52], ['head', 1.065, 1.70]],
+      marks: { rump: 0, withers: [5.5, 6.6], poll: 11 },
+      jaw: { hinge: [1.10, 1.655], from: 11.8, soft: 1.5, lips: 0.42 },
+      mane: { from: 6.6, to: 11.2, at: [0.86, 1.62], most: 0.75 },
+      eye: { at: [1.236, 1.722], r: 0.019 },
     },
     fore: {
-      at: [0.6, 0.15], scapula: [0.42, 1.3], blade: { at: [0.5, 1.12], reach: [0.2, 0.3], most: 0.8 }, scapSwing: 0.5, scapMost: 0.32, lean: 0.5, bones: [0.3, 0.34, 0.3], angles: [35, -2, 2], pastern: [0.06, 0.08], hoof: [0.112, 0.045, 0.08],
-      //       d     front  across ahead
-      girth: [[0, 0.04, 0.035, 0], [0.12, 0.07, 0.05, 0], [0.24, 0.088, 0.06, -0.01], [0.3, 0.085, 0.06, -0.015], [0.36, 0.072, 0.055, 0],
-        [0.48, 0.055, 0.045, 0.004], [0.6, 0.04, 0.036, 0], [0.645, 0.043, 0.04, 0.004], [0.69, 0.033, 0.031, 0], [0.8, 0.027, 0.024, 0],
-        [0.9, 0.029, 0.026, -0.003], [0.94, 0.034, 0.029, -0.004]],
-      share: { at: [0.44, 0.84], reach: [0.2, 0.16], most: 0.5 },
+      at: [0.55, 0.15], proud: 0.035,
+      //        the blade's top      the point of the shoulder  the elbow             the knee              the fetlock
+      joints: [[0.40, 1.30, 0.10], [0.685, 0.985, 0.19], [0.455, 0.815, 0.185], [0.505, 0.455, 0.150], [0.510, 0.135, 0.150]],
+      //          y     front   back    out    in
+      outline: [[1.30, 0.500, 0.300, 0.160, 0.04], [1.20, 0.585, 0.275, 0.210, 0.05], [1.10, 0.665, 0.270, 0.245, 0.06],
+        [1.00, 0.715, 0.300, 0.265, 0.07], [0.92, 0.705, 0.335, 0.265, 0.08], [0.84, 0.650, 0.370, 0.250, 0.09],        // the point of the shoulder, the elbow behind
+        [0.78, 0.615, 0.405, 0.235, 0.10], [0.70, 0.590, 0.425, 0.220, 0.105], [0.60, 0.565, 0.445, 0.200, 0.11],       // the forearm
+        [0.50, 0.548, 0.458, 0.190, 0.112], [0.455, 0.553, 0.452, 0.193, 0.108], [0.41, 0.545, 0.462, 0.188, 0.112],    // the knee
+        [0.36, 0.530, 0.470, 0.178, 0.122], [0.25, 0.528, 0.474, 0.176, 0.124], [0.17, 0.532, 0.470, 0.178, 0.122],     // the cannon
+        [0.135, 0.545, 0.462, 0.184, 0.116], [0.09, 0.570, 0.490, 0.180, 0.120], [0.05, 0.598, 0.512, 0.190, 0.110]],   // the fetlock, the pastern, the coronet
+      hoof: { long: 0.112, high: 0.05, wide: 0.085, ahead: 0.045 },
     },
     hind: {
-      at: [-0.53, 0.14], bones: [0.38, 0.4, 0.32], angles: [-28, 32, -4], pastern: [0.055, 0.075], hoof: [0.105, 0.042, 0.075],
-      girth: [[0, 0.06, 0.055, 0], [0.18, 0.13, 0.095, 0], [0.33, 0.14, 0.1, 0.01], [0.38, 0.125, 0.09, 0.01], [0.46, 0.095, 0.068, -0.005],
-        [0.6, 0.062, 0.046, -0.012], [0.72, 0.046, 0.033, -0.018], [0.78, 0.05, 0.034, -0.015], [0.83, 0.034, 0.028, 0], [0.96, 0.028, 0.025, 0],
-        [1.06, 0.03, 0.026, 0], [1.1, 0.034, 0.029, -0.003]],
-      share: { at: [-0.44, 0.88], reach: [0.3, 0.26], most: 0.7 }, lean: 0.5,
+      at: [-0.535, 0.16], proud: 0.04,
+      //        the hip               the stifle            the hock               the fetlock
+      joints: [[-0.46, 1.11, 0.14], [-0.305, 0.80, 0.20], [-0.625, 0.49, 0.165], [-0.595, 0.145, 0.16]],
+      outline: [[1.32, -0.320, -0.620, 0.200, 0.05], [1.22, -0.235, -0.725, 0.262, 0.05], [1.10, -0.185, -0.780, 0.285, 0.05],
+        [1.00, -0.175, -0.790, 0.290, 0.05], [0.90, -0.185, -0.785, 0.280, 0.06], [0.80, -0.215, -0.755, 0.262, 0.08],  // the haunch, down to the stifle
+        [0.72, -0.290, -0.720, 0.240, 0.10], [0.64, -0.390, -0.695, 0.222, 0.115], [0.56, -0.495, -0.690, 0.208, 0.122], // the gaskin
+        [0.49, -0.550, -0.705, 0.200, 0.128], [0.45, -0.572, -0.682, 0.196, 0.130], [0.38, -0.582, -0.650, 0.190, 0.134], // the hock, its point behind
+        [0.25, -0.576, -0.636, 0.188, 0.134], [0.18, -0.566, -0.630, 0.190, 0.132],                                      // the cannon
+        [0.145, -0.556, -0.640, 0.194, 0.126], [0.09, -0.525, -0.605, 0.190, 0.130], [0.048, -0.505, -0.592, 0.198, 0.122]],
+      hoof: { long: 0.105, high: 0.048, wide: 0.08, ahead: 0.045 },
+    },
+    ear: { at: [1.085, 1.795], length: 0.225, width: 0.125, out: 35, open: 40, back: 42 },
+    tail: { at: [-0.786, 1.20], length: 0.14, width: 0.075, depth: 0.04, hang: 12 },
+    // a bull's antlers, in velvet: well grown, each beam sweeping up, out and back with its brow, bez and trez tines
+    // and forking at its top (true to June more than to the middle of May: the owner's choice, 2026-11-18)
+    antler: {
+      at: [1.128, 1.810], side: 0.062, base: 0.042, tip: 0.027, far: 3,
+      beam: [[0, 0, 0], [-0.02, 0.10, 0.07], [-0.10, 0.24, 0.17], [-0.24, 0.40, 0.25], [-0.40, 0.54, 0.28], [-0.54, 0.66, 0.25], [-0.62, 0.80, 0.20]],
+      //       along the beam; its line from there; how thick
+      tines: [[0.05, [[0.10, 0.0, 0.02], [0.22, 0.03, 0.03], [0.31, 0.11, 0.03]], 0.85],          // the brow tine, forward over the face
+        [0.13, [[0.09, 0.04, 0.06], [0.20, 0.10, 0.10], [0.27, 0.20, 0.12]], 0.85],              // the bez
+        [0.36, [[0.08, 0.06, 0.03], [0.15, 0.16, 0.05], [0.18, 0.28, 0.06]], 0.9],               // the trez
+        [0.58, [[0.05, 0.10, 0.02], [0.08, 0.23, 0.02], [0.08, 0.36, 0.01]], 0.95],              // the royal, the longest
+        [0.80, [[0.05, 0.08, -0.01], [0.07, 0.18, -0.02]], 0.95]],                               // the fork of the top
     },
     // the neck's four joints (neck1, neck2, neck3, the poll) turned from as it stands (radians): grazing, and head up;
     // `dip`, how far the chest is let down to graze
+    // a bull: his neck deeper and wider (the `mane` bone's scale), his head a little bigger
+    bull: { mane: [1.25, 1.36, 1.55], head: 0.05 },
+    // sparring: the neck out and a little down, the chin tucked hard so that the antlers come forward
+    spar: { neck: 0.42, head: -1.25 },
     neck: { low: [-0.87, -0.47, -0.52, 1.4], high: [0.21, 0.1, 0.07, -0.05], dip: -0.14 },
     // lying down: how far the body comes down; where the knee or the hock and the fetlock go (x from the top joint, y),
     // how far out to the side, and how the hoof is bent from the cannon it then follows (radians)
     lie: { drop: 0.63, fore: { top: [0.13, 0.065], fetlock: [-0.17, 0.045], out: 1.0, hoof: -0.75 }, hind: { top: [-0.09, 0.075], fetlock: [0.23, 0.045], out: 1.55, hoof: 0.2 } },
   },
-  // The words of the information card. Drafted by the agent from the sources above, for the owner to correct.
+  // The coat, as paint (life/plateCoat.js says what each table is): a tawny buff body; a dark chocolate neck, head,
+  // belly line and legs; a pale rump patch with a soft dark border, and a short pale tail. The pattern is from the
+  // sources above; the shades and where each boundary runs are the agent's.
   coat: {
-    body: [
-      { colour: TAN },                                                                           // a pale brown body (NPS)
-      { colour: BACK, where: (p) => smooth(0.8, 0.97, p.a) },
-      { colour: DARK, where: (p) => smooth(0.36, 0.5, p.x + 0.25 * (1.25 - p.y)) },             // a dark brown neck (NPS), down onto the shoulders and the brisket
-      { colour: DARK, where: (p) => smooth(0.3, 0.1, p.a) * smooth(-0.62, -0.45, p.x) },        // a dark belly (Mammals of Texas: belly dull rusty brown to blackish)
-      { colour: BORDER, where: (p) => smooth(-0.46, -0.58, p.x) * smooth(1.18, 0.98, p.y) },    // dark down the backs of the thighs, round the rump patch
-      { colour: CREAM, where: (p) => smooth(-0.55, -0.65, p.x) * smooth(0.86, 0.98, p.y) },     // a large pale rump round the tail (NPS: "large white rump"; creamy buff, Mammals of Texas)
+    rules: [
+      { colour: TAN },                                                                                       // a pale brown body (NPS)
+      // a dark brown neck (NPS): from before the withers down over the point of the shoulder to the brisket
+      { colour: DARK, where: (p) => edge(p.x - (p.y > 1.0 ? 0.70 - 0.32 * (p.y - 1.0) : 0.70 - 0.5 * (1.0 - p.y)), 0.014) },
+      // the legs dark from the elbow down, and from the stifle down and back
+      { colour: DARK, where: (p) => (p.part === 'limb' ? edge((p.hind ? 0.78 + 0.45 * (p.x + 0.40) : 0.84) - p.y, 0.014) : 0) },
+      { colour: DARKER, where: (p) => (p.part === 'limb' ? edge(0.4 - p.y, 0.05) : 0) },
+      // a dark belly line (Mammals of Texas: belly dull rusty brown to blackish)
+      { colour: DARK, where: (p) => (p.part === 'body' ? edge(0.17 - p.a, 0.03) * edge(p.x + 0.62, 0.04) : 0) },
+      // a large pale rump round the tail (NPS: "large white rump"; creamy buff, Mammals of Texas), with a dark edge
+      { colour: BORDER, where: (p) => edge(RUMP(p.y) + 0.035 - p.x, 0.02) * edge(p.y - 0.80, 0.03) },
+      { colour: CREAM, where: (p) => edge(RUMP(p.y) - p.x, 0.012) * edge(p.y - 0.83, 0.03) },
+      // the face: a browner head, darker down the muzzle, a pale chin, the nose's leather black
+      { colour: HEAD, where: (p) => (p.part === 'body' ? edge(p.t - 11.3, 0.3) : 0) },
+      { colour: MUZZLE, where: (p) => (p.part === 'body' ? edge(p.t - 13.7, 0.25) : 0) },
+      { colour: CHIN, where: (p) => (p.part === 'body' ? edge(p.t - 13.5, 0.2) * edge(0.24 - p.a, 0.05) : 0) },
+      { colour: NOSE, where: (p) => (p.part === 'body' ? edge(p.t - 14.66, 0.05) * edge(p.a - 0.40, 0.06) : 0) },
     ],
-    // patches of the short new summer coat (reddish: RMEF; NPS Rocky Mountain) through the old winter one, which in
-    // the Olympics is shed from late April into June (Schwartz and Mitchell 1945, as a summary has it): shown as a
-    // slight reddening and darkening of the old coat in soft clumps drawn out up and down the flank (the first try
-    // painted saturated orange patches with hard edges, which read as sores)
-    moult: { shift: [-5, 7, -8], share: 0.4, scale: 2.6, soft: 0.22, strength: 0.65, stretch: [1.3, 0.55, 1] },
-    head: [
-      { colour: HEAD },                                                                          // a dark brown head (NPS)
-      { colour: MUZZLE, where: (p) => smooth(0.34, 0.44, p.s) },
-      { colour: NOSE, where: (p) => smooth(0.47, 0.5, p.s) * smooth(-0.02, 0.01, p.up) },
+    // the form: the shoulder and the haunch a tone lighter where they stand out, the hollows behind the elbow and in
+    // the flank a tone darker; the neck's side plane, and the long hair under it; the cheek
+    // (most of the form is the turn of the surface itself; these are the hollows it does not have)
+    planes: [
+      { at: [0.30, 0.93], r: [0.055, 0.16], tone: -1 },
+      { at: [-0.26, 1.00], r: [0.06, 0.14], turn: 12, tone: -1 },
+      { at: [0.92, 1.24], r: [0.24, 0.07], turn: 66, tone: -1 },
     ],
-    leg: ({ d, out, hind, pastern }) => {
-      if (pastern) return DARKER;
-      // the metatarsal gland: on the outer side of the hind cannon about a third of the way down it, an oval of long
-      // tan hair about 75 mm tall, whitish in the middle (Mammals of Texas); a soft tuft, with no edge of its own
-      const base = [DARK, DARKER].reduce((a, b) => [a[0] + (b[0] - a[0]) * smooth(0.3, 0.8, d), a[1] + (b[1] - a[1]) * smooth(0.3, 0.8, d), a[2] + (b[2] - a[2]) * smooth(0.3, 0.8, d)]);
-      if (hind && out > 0) {
-        const r = Math.hypot((d - 0.81) / 0.036, (out - 0.8) / 0.5), ring = 1 - smooth(0.45, 1, r), core = 1 - smooth(0.0, 0.6, r);
-        if (ring > 0) return mix(mix(base, GLAND, ring * 0.7), GLAND_CORE, core * 0.55);
-      }
-      return base;
-    },
-    hoof: [26, 8, 12],
-    ear: { outer: [28, 16, 38], inner: [36, 18, 68], edge: [22, 20, 18] },
-    tail: { top: [34, 28, 60], under: [38, 32, 70] },
-    antler: [26, 16, 30],                                                                        // velvet (its colour not found)
+    tones: { light: [2, 0, 5], shade: [-3, 2, -6] },
+    turn: { top: 1, under: 1 },
+    hoof: [24, 10, 7],
+    ear: { outer: [26, 22, 30], inner: [34, 26, 66], edge: [22, 22, 16] },
+    tail: { top: [36, 32, 66], under: [38, 34, 72] },
+    antler: [24, 20, 27],                                                                                    // velvet (its colour not found)
     eye: { iris: [20, 45, 9], pupil: [240, 10, 4] },
-    hair: { long: (p) => p.x > 0.55 && p.a < 0.55 },                                            // a thin dark mane (NPS), long and shaggy under the neck (Mammals of Texas)
   },
+  // Who an elk may be (life/plateRig.js: one skeleton and one paint; its family sets these once): the cow is the
+  // sheet; a bull is larger, his neck deep and maned, with antlers; a calf small, on long legs. And the poses the
+  // contact sheet shows (life/plateStudio.js), each the fields of a pose a family may ask for.
+  who: { cow: {}, bull: { scale: 1.07, antler: 1 }, spike: { scale: 0.95, antler: 0.55 }, calf: { scale: 0.5 }, yearling: { scale: 0.84 } },
+  poses: {
+    alert: { neck: 1, ears: 1, head: { pitch: 0.05 } },
+    graze: { neck: 0, jaw: 0.3, ears: -0.2 },
+    look: { neck: 0.9, ears: 1, head: { yaw: 1.0, pitch: 0.05 } },
+    lie: { lie: 1, neck: 0.55, ears: 0 },
+    walk: { walk: 1, cycle: 0.1 },
+    trot: { trot: 1, neck: 0.8, cycle: 0.1 },
+    gallop: { gallop: 1, neck: 0.75, ears: -0.3, cycle: 0.2 },
+    high: { walk: 1, high: 1, neck: 1, ears: 1, cycle: 0.45 },
+    spar: { spar: 1, push: 0.6, ears: -0.6 },
+    rear: { rear: 1, box: 1, beat: 0.2, ears: -0.5 },
+    paw: { dig: 1, rake: 0.55, neck: 0.3 },
+    scratch: { scratch: 1, beat: 0.1 },
+    shake: { shake: 1, beat: 0.05 },
+  },
+  studio: { high: 2.45, tall: 1.75, small: ['cow', 'bull'], middle: 0.34, apart: 2.95,
+    rows: [
+      { span: 2.85, high: 2.45, cells: [['cow', 'cow', null, 'side'], ['front', 'cow', null, 'front'], ['behind', 'cow', null, 'behind'], ['three-quarters', 'cow', null, 'quarter'], ['bull, in velvet', 'bull', 'alert', 'side']] },
+      { span: 2.85, high: 2.3, cells: [['from above', 'cow', null, 'above'], ['calf', 'calf', null, 'side'], ['grazing', 'cow', 'graze', 'side'], ['alert', 'cow', 'alert', 'side'], ['looking round', 'cow', 'look', 'quarter'], ['lying', 'cow', 'lie', 'side']] },
+      { span: 3.1, high: 2.2, cells: [['walk', 'cow', 'walk', 'side'], ['trot', 'cow', 'trot', 'side'], ['gallop', 'cow', 'gallop', 'side'], ['the high step', 'cow', 'high', 'side'], ['pawing', 'bull', 'paw', 'side'], ['scratching', 'cow', 'scratch', 'side']] },
+      { span: 3.1, high: 2.9, cells: [['rearing to box', 'cow', 'rear', 'side'], ['sparring', 'bull', 'spar', 'side'], ['shaking', 'cow', 'shake', 'quarter'], ['bull', 'bull', 'look', 'quarter'], ['bull, going away', 'bull', null, 'rear']] },
+    ] },
+  // The words of the information card. Drafted by the agent from the sources above, for the owner to correct.
   card: {
     size: 'A cow stands about 1.4 m at the shoulder and weighs 260 to 280 kg; a bull is larger, to 1.5 m and 500 kg. The largest elk of North America.',
     marks: ['A pale brown body, a dark brown head, neck and legs', 'A large pale rump round a short tail', 'In May every elk is losing its greyish winter coat, and a bull\'s new antlers are growing, furred in velvet', 'Cows and their young go about in herds led by an old cow; bulls keep apart, alone or a few together'],

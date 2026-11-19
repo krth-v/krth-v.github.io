@@ -33,8 +33,13 @@
 // What is the agent's own: the number each tier stands for (TIER), every `mean` that is not its tier's,
 // every party's size, how often a wave comes and how strong, and how much a quiet day takes away.
 
-// the mean number within sight of the walk that a tier stands for (so 'some' is there on 45 visits in 100)
-export const TIER = { every: 5, most: 1.8, some: 0.6, few: 0.22, rare: 0.07, 'very rare': 0.02, absent: 0 };
+// the mean number within sight of the walk that a tier stands for. Until 2026-11-18 the lower tiers were what the
+// sources say of such a valley in May (some 0.6, few 0.22, rare 0.07, very rare 0.02: a 'very rare' kind was there
+// on one visit in fifty). The owner: "Uncommon and rare species just need to show up more. I think 1/50 occurence
+// rates are too small. Bump them up significantly. Even if it's not scientifically accurate, I'd rather have more
+// animals present in their respective niches than an empty world." So now, on an ordinary day: 'some' is there on
+// about 63 visits in 100, 'few' on 47, 'rare' on 35, 'very rare' on 24 (the order of the tiers is still the sources').
+export const TIER = { every: 5, most: 2, some: 1, few: 0.65, rare: 0.45, 'very rare': 0.28, absent: 0 };
 
 // The roll itself is each kind's `census`, in the kind's own file, gathered in the roll's order by
 // life/species/index.js (ROLL); what its fields are is said there.
@@ -83,9 +88,16 @@ export function census(seed, hour = 12, { busy = false, roll } = {}) {
     let mean = row.mean * quiet * share;
     if (row.wave && dark < 0.5) mean *= 1 + (WAVE.most - 1) * wave;
     const n = busy ? Math.max(1, Math.ceil(row.mean * 2)) * (share > 0 ? 1 : 0) : drawn(mean, r);
-    if (!n) continue;
     const parties = [];
     for (let i = 0; i < n; i += 1) parties.push(busy ? row.party[1] : row.party[0] + Math.floor(r() * (row.party[1] - row.party[0] + 1)));
+    // A kind that is `sure`: no fewer and no more parties than it says, at an hour it is abroad. The day's draw is
+    // made all the same, and a party it adds is sized from numbers of its own, so that no other kind's draw moves.
+    if (row.sure && share >= 0.5 && !busy) {
+      parties.length = Math.min(parties.length, row.sure[1]);
+      const own = parties.length < row.sure[0] ? mulberry(Math.imul(seed, 40503) + Math.imul(about.length + 1, 9973) + 7) : null;
+      while (parties.length < row.sure[0]) parties.push(row.party[0] + Math.floor(own() * (row.party[1] - row.party[0] + 1)));
+    }
+    if (!parties.length) continue;
     about.push({ key: row.key, parties });
   }
   return { seed, quiet, wave, dark, about };

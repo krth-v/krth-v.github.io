@@ -202,9 +202,7 @@ export function* spireAtlasSteps(look, spec) {
 
   // (in the order they were always painted: the two crowns, the three boughs seen flat, the three from beside)
   const crowns = [crown(0, 0, spec.seed + 11)];
-  yield 'crown';
   crowns.push(crown(CROWN_W, 0, spec.seed + 48));
-  yield 'crown';
   const sprays = [0, 2, 4].map((i, k) => spray(i, spec.seed + 101 + k * 13)), sides = [1, 3, 5].map((i, k) => side(i, spec.seed + 151 + k * 17));
   yield 'boughs';
   const sheet = { crown: crowns, spray: sprays, side: sides,

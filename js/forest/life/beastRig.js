@@ -3,6 +3,7 @@ import { BEAST_BONES, BEAST_PARENT, LEGS } from './beast.js';
 import { stridesOf } from './beasts.js';
 import { stanceOf } from './parts/stance.js';
 import { rodentRig } from './parts/rodentRig.js';
+import { createPlateBeast } from './plateRig.js';
 
 // One big animal's skeleton, posed from what life/beasts.js says it is doing. With no material it is the skeleton
 // alone: the forest draws every animal of a kind together (life/flock.js), from the bones this poses. The bind pose
@@ -60,6 +61,7 @@ const ORDER = ['LF', 'RF', 'LH', 'RH'];
 import { longRig } from './parts/longRig.js';
 
 export function createBeast(kind, material = null) {
+  if (kind.plate) return createPlateBeast(kind, material);          // (a beast drawn as a plate has its own rig: life/plateRig.js)
   const bones = BEAST_BONES.map((name) => { const bone = new THREE.Bone(); bone.name = name; return bone; });
   const by = Object.fromEntries(BEAST_BONES.map((name, i) => [name, bones[i]]));
   const built = kind.levels[0], pivots = built.pivots, shape = kind.sheet.shape;

@@ -1,7 +1,7 @@
 // Douglas squirrel, Tamiasciurus douglasii: the small tree squirrel of the Pacific coast's conifer forests, and the
-// one a walker meets in the Olympic valleys. Built by life/beast.js with the parts of life/parts/rodent.js (a bushy
-// tail, a rodent's head, a cone in its paws), posed by life/parts/rodentRig.js, painted by life/coat.js and
-// life/parts/rodentCoat.js; how it lives is life/families/scurrier.js.
+// one a walker meets in the Olympic valleys. Drawn as a plate (life/plate.js; 2026-11-19), with a bushy tail, a
+// rodent's teeth and whiskers and a cone in its paws (life/plate.js `smallParts`), posed by life/plateRig.js, painted
+// by life/plateCoat.js; how it lives is life/families/scurrier.js.
 //
 // What was read (2026-11-16; none of it seen as an image). Dalquest, W. W. 1948, Mammals of Washington (University of
 // Kansas Publications, Museum of Natural History 2), its account of T. d. douglasii, read whole as plain text (Project
@@ -41,11 +41,12 @@ export const published = {
 
 // The summer coat, as paint: [hue, saturation, lightness]. Its pattern is the sources'; each shade, and where each
 // boundary runs, the agent's.
-const OLIVE = [40, 22, 20], RUST = [24, 34, 23], FLANK = [38, 20, 25], LINE = [28, 22, 8];
-const ORANGE = [29, 70, 52], DEEP = [25, 70, 42], HEAD = [38, 22, 21], RING = [38, 42, 66], NOSE = [18, 14, 13];
-const LEG = [32, 22, 20], FOOT = [30, 16, 15];
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const EYE = { s: 0.013, up: 0.0088, side: 0.0142, r: 0.0041 };
+const OLIVE = [36, 18, 17], RUST = [24, 32, 20], FLANK = [36, 17, 21], LINE = [28, 22, 8];
+const ORANGE = [29, 70, 50], DEEP = [25, 70, 42], HEAD = [36, 18, 17], RING = [38, 42, 66], NOSE = [18, 14, 13], LEG = [30, 20, 18];
+// a field's edge: 0 where `x` is under nothing, 1 where it is over, across `soft` either side of it
+const edge = (x, soft) => { const t = Math.min(1, Math.max(0, (x + soft) / (2 * soft))); return t * t * (3 - 2 * t); };
+// the pale ring round the eye (its middle is the plate's eye: shape.plate.eye.at), on the side of the head
+const ring = (p) => { const d = Math.hypot(p.x - 0.089, p.y - 0.068); return edge(d - 0.0049, 0.0006) * edge(0.0066 - d, 0.0006) * edge(Math.abs(p.z) - 0.008, 0.002); };
 
 export default {
   name: 'Douglas squirrel', latin: 'Tamiasciurus douglasii', key: 'douglas-squirrel', seed: 451,
@@ -68,95 +69,124 @@ export default {
   // how long it is, nose to the end of the tail, for what can be seen of it; its body (how high its back stands,
   // half its length, half its width), for whether two bodies are in one another
   size: 0.32, body: { high: 0.08, long: 0.1, wide: 0.03 },
-  studio: { wide: 0.9, bar: 0.1 },
-  // The body, in metres, standing on all fours. Every number is the agent's but the lengths measured above: the
-  // outline is drawn from memory of how a tree squirrel stands, none of it from a photograph looked at.
+  // one stride of a walk, a trot and a gallop (life/beasts.js `stridesOf`); its family asks only for its scamper,
+  // `scurry`, whose stride is shape.climb's (life/plateRig.js)
+  strides: { walk: 0.12, trot: 0.25, gallop: 0.42 },
+  // The body, in metres, standing on all fours: drawn as a plate (life/plate.js says what each drawing is; redrawn
+  // 2026-11-19). Every number is the agent's but the lengths measured above, from memory of tree squirrels and of
+  // field-guide plates of them (no photograph was looked at): a compact body, the back rising to big haunches; the
+  // head high on a short neck, round over the skull, the eye big, the muzzle short and blunt; short forelegs with the
+  // forefeet under the chest; long hind feet; a bushy tail as long as two thirds of the body, flattened, its hair a
+  // card's ragged edge (shape.brush).
   shape: {
-    unit: 0.1,
-    // the torso and the neck, rump to head: [top x, top y, bottom x, bottom y, half width, widest at, square]
-    trunk: [
-      [-0.070, 0.064, -0.072, 0.050, 0.010, 0.50, 2.0],       // the rump's end, round the tail's root
-      [-0.066, 0.071, -0.069, 0.034, 0.020, 0.52, 2.1],       // the croup, and the buttocks under it
-      [-0.057, 0.077, -0.058, 0.025, 0.026, 0.50, 2.25],      // the haunches
-      [-0.042, 0.079, -0.041, 0.022, 0.028, 0.50, 2.3],
-      [-0.024, 0.077, -0.023, 0.023, 0.028, 0.50, 2.3],       // the loins and the belly
-      [-0.006, 0.073, -0.005, 0.025, 0.026, 0.52, 2.25],
-      [0.012, 0.068, 0.014, 0.027, 0.024, 0.54, 2.2],         // the ribs
-      [0.028, 0.065, 0.030, 0.029, 0.021, 0.56, 2.15],        // the chest, under the shoulders
-      [0.041, 0.065, 0.044, 0.033, 0.018, 0.55, 2.1],         // the shoulders and the breast
-      [0.051, 0.068, 0.055, 0.040, 0.016, 0.52, 2.05],        // the neck's base
-      [0.059, 0.073, 0.063, 0.047, 0.015, 0.50, 2.0],         // the neck
-      [0.065, 0.078, 0.069, 0.054, 0.014, 0.50, 2.0],         // inside the head
-    ],
-    withers: [0.02, 0.045],
-    spine: { hips: [-0.044, 0.054], chest: [0.010, 0.050], neck1: [0.044, 0.052], neck2: [0.054, 0.058], neck3: [0.062, 0.064] },
-    blend: [0.02, 0.012, 0.008, 0.007, 0.006],
-    head: {
-      at: [0.066, 0.068], tilt: -18, square: 1.9, jaw: [0.026, -0.006],
-      //          s       up      down    half: round over the skull behind the eyes, and drawn to a short blunt muzzle
-      stations: [[-0.014, 0.008, 0.009, 0.009], [-0.008, 0.0145, 0.0128, 0.0142], [0.0, 0.0182, 0.0146, 0.0172], [0.008, 0.0192, 0.0148, 0.0178], [0.016, 0.0178, 0.0138, 0.0168],
-        [0.024, 0.0148, 0.012, 0.014], [0.031, 0.0115, 0.0102, 0.0115], [0.037, 0.0088, 0.0084, 0.0092], [0.042, 0.0062, 0.006, 0.0068]],
-      eye: EYE,
-      incisors: { long: 4, wide: 3 },
-      whiskers: { long: 34, count: 4 },
+    gait: 'bound',
+    plate: {
+      side: {
+        //     t      x       y
+        top: [[0, -0.072, 0.058], [0.6, -0.070, 0.068], [1.2, -0.064, 0.076], [2, -0.054, 0.082], [3, -0.040, 0.085],     // the rump, the haunches
+          [4, -0.024, 0.083], [5, -0.008, 0.078], [6, 0.008, 0.072], [7, 0.022, 0.067], [8, 0.035, 0.066],                // the loins, the back, the shoulders
+          [9, 0.046, 0.068], [10, 0.056, 0.072], [11, 0.064, 0.077], [12, 0.072, 0.080], [13, 0.082, 0.079],             // the neck, the poll, the round skull
+          [14, 0.092, 0.074], [15, 0.101, 0.066], [16, 0.108, 0.060], [16.6, 0.111, 0.055], [17, 0.112, 0.051]],         // the brow, the short blunt muzzle
+        bottom: [[0, -0.072, 0.052], [0.6, -0.071, 0.042], [1.2, -0.066, 0.034], [2, -0.058, 0.029], [3, -0.044, 0.027],
+          [4, -0.026, 0.027], [5, -0.008, 0.028], [6, 0.008, 0.029], [7, 0.022, 0.031], [8, 0.035, 0.035],               // the belly, the chest
+          [9, 0.046, 0.040], [10, 0.056, 0.046], [11, 0.064, 0.050], [12, 0.072, 0.051], [13, 0.082, 0.050],            // the throat, under the jaw
+          [14, 0.092, 0.049], [15, 0.101, 0.048], [16, 0.108, 0.047], [16.6, 0.111, 0.048], [17, 0.112, 0.050]],         // the chin
+      },
+      above: [[0, 0.006], [0.6, 0.014], [1.2, 0.020], [2, 0.025], [3, 0.028], [4, 0.029], [5, 0.028], [6, 0.026], [7, 0.023], [8, 0.020],
+        [9, 0.017], [10, 0.016], [11, 0.0165], [12, 0.0178], [13, 0.0172], [14, 0.0148], [15, 0.0112], [16, 0.0072], [16.6, 0.0045], [17, 0.002]],
+      front: [[0, 0.5, 2.0, 2.0], [3, 0.5, 2.2, 2.2], [6, 0.52, 2.3, 2.2], [9, 0.5, 2.2, 2.0], [12, 0.5, 2.2, 2.0], [15, 0.5, 2.1, 2.1], [17, 0.5, 2.0, 2.0]],
+      spine: [['hips', -0.046, 0.058], ['loin', -0.026, 0.060], ['back', -0.004, 0.058], ['chest', 0.018, 0.052],
+        ['neck1', 0.038, 0.054], ['neck2', 0.048, 0.058], ['neck3', 0.056, 0.062], ['head', 0.064, 0.066]],
+      marks: { rump: 0.6, withers: [6.5, 8.5], poll: 11 },
+      jaw: { hinge: [0.066, 0.056], from: 14.3, soft: 0.8, lips: 0.42, open: 0.35 },
+      eye: { at: [0.089, 0.068], r: 0.0044 },
     },
-    ear: { s: -0.003, up: 0.0155, side: 0.0085, length: 0.0225, width: 0.0155, out: 22, open: 32, round: 0.65 },
-    tail: { at: [-0.068, 0.062], length: 0.1235, width: 0.011, depth: 0.0095, hang: 98, bush: { long: 22, round: 11 } },
+    // its paws (the bear's, life/parts/paw.js): the forefeet small, the hind feet long, the claws small and curved for
+    // the bark (mm: the agent's)
+    paw: { kind: 'plantigrade', claw: 4, hind: 4.5, curve: 1.3 },
     fore: {
-      at: [0.034, 0.0101], scapula: [0.030, 0.060], bones: [0.022, 0.024, 0.014], angles: [28, -6, -72], pastern: [0.007, 0.002], hoof: [0.006, 0.0025, 0.006],
-      //       d      front   across  ahead
-      girth: [[0, 0.007, 0.006, 0], [0.011, 0.0075, 0.0065, 0.001], [0.022, 0.005, 0.0045, 0], [0.034, 0.0042, 0.0038, 0], [0.046, 0.0034, 0.0034, 0],
-        [0.053, 0.0022, 0.004, 0], [0.060, 0.0018, 0.0042, 0]],
-      share: { at: [0.032, 0.035], reach: [0.016, 0.014], most: 0.5 },
+      at: [0.036, 0.014],
+      //        the blade's top        the point of the shoulder  the elbow             the wrist              over the pad
+      joints: [[0.012, 0.064, 0.012], [0.030, 0.046, 0.017], [0.016, 0.029, 0.017], [0.034, 0.010, 0.014], [0.036, 0.005, 0.014]],
+      //          y      front   back    out    in
+      outline: [[0.064, 0.036, -0.005, 0.016, 0.006], [0.054, 0.042, -0.002, 0.021, 0.007], [0.045, 0.043, 0.002, 0.023, 0.008],
+        [0.036, 0.038, 0.006, 0.023, 0.009], [0.028, 0.035, 0.011, 0.021, 0.010], [0.020, 0.037, 0.021, 0.019, 0.010],
+        [0.012, 0.039, 0.028, 0.018, 0.011], [0.007, 0.040, 0.030, 0.0175, 0.011], [0.005, 0.040, 0.031, 0.0175, 0.011]],
+      foot: { long: 0.022, wide: 0.009 }, web: 0,
     },
     hind: {
-      at: [-0.046, 0.0115], bones: [0.034, 0.040, 0.032], angles: [-48, 52, -80], pastern: [0.009, 0.0015], hoof: [0.007, 0.0025, 0.008],
-      girth: [[0, 0.012, 0.008, 0], [0.012, 0.014, 0.0092, 0.002], [0.026, 0.011, 0.009, 0.001], [0.036, 0.008, 0.0065, 0], [0.052, 0.006, 0.005, 0],
-        [0.068, 0.0042, 0.0042, 0], [0.074, 0.004, 0.0045, 0], [0.090, 0.0028, 0.0055, 0], [0.106, 0.0022, 0.0058, 0]],
-      share: { at: [-0.040, 0.038], reach: [0.022, 0.02], most: 0.6 },
+      at: [-0.05, 0.017],
+      //        the hip                 the knee                the ankle               over the pad
+      joints: [[-0.046, 0.058, 0.014], [-0.026, 0.038, 0.022], [-0.058, 0.010, 0.017], [-0.050, 0.005, 0.017]],
+      outline: [[0.064, -0.028, -0.068, 0.018, 0.006], [0.054, -0.018, -0.072, 0.026, 0.007], [0.044, -0.014, -0.073, 0.030, 0.008],
+        [0.036, -0.016, -0.070, 0.031, 0.010], [0.028, -0.025, -0.066, 0.029, 0.012], [0.020, -0.036, -0.064, 0.026, 0.013],
+        [0.013, -0.045, -0.064, 0.024, 0.013], [0.008, -0.048, -0.064, 0.023, 0.013], [0.005, -0.048, -0.064, 0.023, 0.013]],
+      foot: { long: 0.058, wide: 0.011 }, web: 0,
     },
-    // (no `paw` yet: given, it turns on the bear's paw, its stance and its paint (life/parts/paw.js, stance.js) whether
-    // or not a leg gives `hoof`, but the paw's own plan of the leg only where none does. These legs are laid on the
-    // hoof's plan, the hind foot along the third bone, and `hoof` stands for the pads and the claws: to take the paw,
-    // the legs are laid again without `hoof`, and the rig's feet and the hind foot's measure are done again with them)
+    ear: { at: [0.071, 0.077], side: 0.011, length: 0.0229, width: 0.0135, out: 22, open: 32, round: 0.65, back: 15 },
+    // the tail's bone (published) and its brush: the hair 24 mm either side and 13 above and below (the agent's)
+    tail: { at: [-0.068, 0.062], length: 0.1233, width: 0.011, depth: 0.0095, hang: 98 },
+    brush: { long: 22, round: 13, past: 0.75, core: 0.6, taper: 0.1, carry: { droop: 0.25, up: 1.35, curl: 1.6, run: 0.45, sit: 0.3 } },
+    teeth: { long: 4, wide: 3 },
+    whiskers: { long: 34, count: 4 },
+    // a Douglas-fir's cone from last autumn's store (its size the agent's)
+    cone: { long: 62, wide: 26 },
+    // how it climbs and scampers (life/families/scurrier.js runs `cycle` by climb.stride; life/plateRig.js): one bound's
+    // stride at a run (m), how far its feet spread on the bark, how far its back gathers
+    climb: { stride: 0.42, splay: 0.02, flex: 0.35 },
+    // sitting up on its haunches (life/plateRig.js): the hips this high, the body turned up this far (radians)
+    sit: { high: 0.022, pitch: 1.2, arch: 0.25, back: 0.15, fore: 0.1 },
     // the neck's four joints turned from as it stands (radians): nose to the ground, and head up; `dip`, how far the
     // chest goes down with it
     neck: { low: [-0.55, -0.35, -0.3, 0.35], high: [0.28, 0.16, 0.12, -0.1], dip: -0.05 },
-    // (the beast's lying down: a squirrel is never posed so, but the rig reads it)
-    lie: { drop: 0.02, fore: { top: [0.02, 0.012], fetlock: [-0.01, 0.004], out: 1.0, hoof: -0.5 }, hind: { top: [-0.01, 0.012], fetlock: [0.02, 0.004], out: 1.2, hoof: 0.2 } },
-    climb: { stride: 0.42, splay: 0.02, flex: 0.35 },
-    // a Douglas-fir's cone from last autumn's store (its size the agent's)
-    cone: { long: 62, wide: 26 },
+    lie: { drop: 0.02, fore: { top: [0.02, 0.012], fetlock: [0.03, 0.004], out: 1.0, hoof: 0 }, hind: { top: [-0.01, 0.012], fetlock: [-0.02, 0.004], out: 1.2, hoof: 0 } },
   },
+  // The summer coat, as paint (life/plateCoat.js says what each table is): dusky olive above, rust along the back,
+  // orange below and up the throat, a black line along each side, a pale ring round the eye, brown legs and feet.
   coat: {
-    body: [
-      { colour: FLANK },
-      { colour: OLIVE, where: (p) => smooth(0.5, 0.72, p.a) },                                                   // dusky olive above (Q)
-      { colour: RUST, where: (p) => 0.75 * smooth(0.8, 0.95, p.a) * smooth(-0.06, -0.01, p.x) * (1 - smooth(0.03, 0.05, p.x)) },   // some rust along the back (A)
-      { colour: LINE, where: (p) => smooth(0.27, 0.31, p.a) * (1 - smooth(0.35, 0.4, p.a)) * smooth(-0.055, -0.035, p.x) * (1 - smooth(0.025, 0.04, p.x)) },   // the black line along the side, in summer (M, A)
-      { colour: ORANGE, where: (p) => 1 - smooth(0.24, 0.3, p.a) },                                            // orange below (Q)
-      { colour: ORANGE, where: (p) => smooth(0.035, 0.05, p.x) * (1 - smooth(0.24, 0.32, p.a)) },              // and up the breast to the chin
-      { colour: DEEP, where: (p) => 0.6 * (1 - smooth(0.04, 0.13, p.a)) },
+    rules: [
+      { colour: OLIVE },                                                                                                                    // dusky olive above (Q)
+      { colour: FLANK, where: (p) => (p.part === 'body' ? edge(0.55 - p.a, 0.08) * edge(10 - p.t, 0.6) : edge(0.045 - p.y, 0.01)) },
+      { colour: RUST, where: (p) => (p.part === 'body' ? 0.7 * edge(p.a - 0.8, 0.06) * edge(p.x + 0.055, 0.01) * edge(0.04 - p.x, 0.01) : 0) },   // some rust along the back (A)
+      { colour: LINE, where: (p) => (p.part === 'body' ? edge(0.022 - Math.abs(p.a - 0.33), 0.012) * edge(p.x + 0.05, 0.008) * edge(0.034 - p.x, 0.008) : 0) },   // the black line along the side, in summer (M, A)
+      { colour: ORANGE, where: (p) => (p.part === 'body' ? Math.max(edge(0.28 - p.a, 0.03), edge(0.44 - p.a, 0.04) * edge(p.t - 8.6, 0.5) * edge(11.2 - p.t, 0.4), edge(0.3 - p.a, 0.03) * edge(15.5 - p.t, 0.4)) : (p.out < -0.2 && !p.hind ? edge(p.y - 0.012, 0.004) : 0)) },   // orange below, up the breast to the chin (Q)
+      { colour: DEEP, where: (p) => (p.part === 'body' ? 0.55 * edge(0.12 - p.a, 0.05) * edge(9 - p.t, 0.6) : 0) },
+      { colour: HEAD, where: (p) => (p.part === 'body' ? edge(p.t - 11, 0.5) * edge(p.a - 0.48, 0.05) : 0) },
+      { colour: RING, where: (p) => (p.part === 'body' ? ring(p) : 0) },                                                                     // a pale ring round the eye (W)
+      { colour: NOSE, where: (p) => (p.part === 'body' ? edge(p.t - 16.55, 0.12) * edge(p.a - 0.42, 0.06) : 0) },
+      { colour: LEG, where: (p) => (p.part === 'limb' ? edge(0.03 - p.y, 0.01) : 0) },                                                      // brown legs and feet (W)
     ],
-    head: [
-      { colour: HEAD },
-      { colour: ORANGE, where: (p) => 1 - smooth(0.2, 0.36, p.a) },                                               // the chin and the throat
-      { colour: RING, where: (p) => { const d = Math.hypot(p.s - EYE.s, p.up - EYE.up, (Math.abs(p.z) - EYE.side) * 0.7); return smooth(0.0040, 0.0046, d) * (1 - smooth(0.0052, 0.0058, d)); } },   // a pale ring round the eye (W)
-      { colour: NOSE, where: (p) => smooth(0.038, 0.042, p.s) * smooth(-0.003, 0.0, p.up) },
-    ],
-    leg: ({ d, out, pastern }) => (pastern ? FOOT : [LEG, FOOT].reduce((a, b) => [a[0] + (b[0] - a[0]) * smooth(0.5, 1, d), a[1] + (b[1] - a[1]) * smooth(0.5, 1, d), a[2] + (b[2] - a[2]) * smooth(0.5, 1, d) + (out < 0 ? 4 : 0)])),   // brown legs and feet (W)
-    hoof: [25, 12, 14],
-    ear: { outer: [34, 22, 30], inner: [28, 24, 42], edge: [30, 18, 15] },
-    tail: { top: OLIVE, under: [22, 46, 32] },
-    antler: [30, 10, 30],                                     // (no antler: the beast's painter fills its cell all the same)
+    planes: [],
+    tones: { light: [3, -4, 8], shade: [-2, 2, -6] },
+    turn: { top: 1, under: 0.8 },
+    hair: { count: 0.5, long: 0.006 },
+    claw: [25, 12, 14], pad: [26, 14, 24],
+    ear: { outer: [34, 22, 28], inner: [28, 24, 40], edge: [30, 18, 15] },
     eye: { iris: [20, 30, 7], pupil: [0, 0, 3] },
-    hair: { long: () => false },
-    fur: 2.4,
-    // the brush of the tail (life/parts/rodentCoat.js): like the back above, then a black band, and the hairs' tips
-    // orange or yellow (Q, A); rusty below
+    // the brush of the tail: like the back above, then a black band, and the hairs' tips orange or yellow (Q, A); rusty below
     bush: { top: [38, 22, 20], band: [28, 20, 8], fringe: [34, 62, 52], under: [22, 46, 32] },
     bits: { teeth: [30, 80, 50], whiskers: [30, 12, 9], cone: [24, 42, 27], flake: [26, 44, 33] },
   },
+  // Who it may be, and the poses its contact sheet shows: each the fields its family asks for (life/families/scurrier.js)
+  who: { adult: {} },
+  poses: {
+    alert: { neck: 0.95, ears: 0.6, tail: 0.55, curl: 0.3 },
+    scamper: { scurry: 1, cycle: 0.1, tail: 0.55, curl: 0.3 },
+    stretched: { scurry: 1, cycle: 0.6, tail: 0.55, curl: 0.3 },
+    sit: { sit: 1, tail: 0.75, curl: 0.5, neck: 0.55 },
+    eat: { sit: 1, hold: 1, strip: 1, husk: 0.6, jaw: 0.4, neck: 0.45, tail: 0.75, curl: 0.5, head: { pitch: -0.25 } },
+    climb: { cling: 1, scurry: 0.6, cycle: 0.3, tail: 0.35, curl: 0.15, neck: 0.75 },
+    down: { cling: 1, down: 1, tail: 0.6, curl: 0.15, neck: 0.95, ears: 0.6 },
+    crouch: { crouch: 1, tail: 0.1, curl: 0, neck: 0.5, ears: -0.4 },
+    sniff: { neck: 0.05, head: { pitch: -0.2 }, tail: 0.55, curl: 0.3 },
+    flick: { neck: 0.9, tail: 0.6, curl: 0.3, flick: 0.8, jaw: 0.5 },
+  },
+  studio: { high: 0.14, tall: 0.1, middle: 0.0,
+    rows: [
+      { span: 0.36, high: 0.18, cells: [['adult', 'adult', 'alert', 'side'], ['front', 'adult', 'alert', 'front'], ['behind', 'adult', 'alert', 'behind'], ['three-quarters', 'adult', 'alert', 'quarter']] },
+      { span: 0.36, high: 0.15, cells: [['from above', 'adult', null, 'above'], ['scampering, gathered', 'adult', 'scamper', 'side'], ['scampering, stretched', 'adult', 'stretched', 'side'], ['nose in the litter', 'adult', 'sniff', 'quarter']] },
+      { span: 0.36, high: 0.2, cells: [['sitting up', 'adult', 'sit', 'side'], ['stripping a cone', 'adult', 'eat', 'quarter'], ['on a trunk, climbing', 'adult', 'climb', 'up'], ['chattering, tail flicked', 'adult', 'flick', 'quarter']] },
+    ] },
   // The words of the information card, drafted by the agent from the sources above, for the owner to correct.
   card: {
     size: 'About 32 cm from nose to tail\'s end, of which the tail is 12 to 13 cm; about 200 g.',

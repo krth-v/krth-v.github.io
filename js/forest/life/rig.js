@@ -3,6 +3,7 @@ import { displayPose } from './parts/display.js';
 import { gaitPose } from './parts/gait.js';
 import { BONES, PARENT, TOES, toeYaw, buildBird } from './bird.js';
 import { swimPose } from './parts/swim.js';
+import { raptorPose } from './parts/raptor.js';
 
 // A species ready to be made into birds: its sheet, and its three detail levels built once.
 export function buildKind(sheet) {
@@ -81,6 +82,7 @@ export function createBird(kind, material = null) {
   //   spread     0 wings folded .. 1 spread                   flap, hand, sweep   the spread wing: raised, its hand raised further, swept back
   //   droop      the folded wing let down                     feet   { mode: 'flat' | 'grip' | 'tuck', width, ahead, round, toeOut }
   //                                                           round: the radius of the branch the toes close on (m), for 'grip'
+  //   (a raptor's besides: `wrist`, `twist`, `prey` and feet that 'reach': life/parts/raptor.js)
   function pose(P = {}) {
     const pitch = P.pitch ?? 0.5, lift = P.lift ?? 0.78, head = P.head || {}, tail = P.tail || {}, feet = P.feet || {};
     const spread = Math.min(1, Math.max(0, P.spread ?? 0));
@@ -166,6 +168,8 @@ export function createBird(kind, material = null) {
     // (a bird that swims: its feet paddling under it, its neck and its size, life/parts/swim.js)
     if (kind.sheet.shape.float) swimPose(by, kind, P);
     displayPose(kind, by, P); gaitPose(kind, by, P);     // (the grouse's: a display's parts, and a walk a foot at a time: life/parts/)
+    // (a raptor's: its wings half shut or braking, its feet thrown forward or trailed, the fish it carries: life/parts/raptor.js)
+    if (kind.sheet.shape.leg.talons) raptorPose(kind, by, P);
   }
 
   // Which detail level is drawn; -1 hides the bird.

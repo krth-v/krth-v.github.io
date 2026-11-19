@@ -1,8 +1,8 @@
 // The Olympic chipmunk, Neotamias amoenus caurinus (Tamias amoenus caurinus in older works): the Olympic Mountains'
 // own race of the yellow-pine chipmunk, a small, pale chipmunk of the high country's open woods, meadows and rocks.
-// On the roll it is the rarest tier: a low valley on the west side is not where it lives, by what was read. Built by
-// life/beast.js with the parts of life/parts/rodent.js, posed by life/parts/rodentRig.js; how it lives is
-// life/families/scurrier.js.
+// On the roll it is the rarest tier: a low valley on the west side is not where it lives, by what was read. Drawn as a
+// plate (life/plate.js; 2026-11-19) with a bushy tail, teeth and whiskers (life/plate.js `smallParts`), posed by
+// life/plateRig.js, painted by life/plateCoat.js; how it lives is life/families/scurrier.js.
 //
 // What was read (2026-11-16; none of it seen as an image). Dalquest, W. W. 1948, Mammals of Washington, read whole
 // as plain text (Project Gutenberg 53582, from a mirror): which chipmunk it is (Eutamias amoenus caurinus, "small
@@ -36,11 +36,17 @@ export const published = {
 };
 
 const SIDES = [30, 36, 52], GREY = [32, 10, 62], BLACK = [20, 20, 8], BROWNBLACK = [20, 30, 13], WHITE = [40, 12, 86], RUMP = [30, 12, 50];
-const HEAD = [28, 40, 44], FACEDARK = [22, 32, 16];
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const band = (x, at, half) => smooth(at - half, at - half * 0.55, x) * (1 - smooth(at + half * 0.55, at + half, x));
-const along = (x) => smooth(-0.037, -0.027, x) * (1 - smooth(0.018, 0.028, x));
-const EYE = { s: 0.0076, up: 0.0052, side: 0.0083, r: 0.0025 };
+const HEAD = [28, 40, 44], FACEDARK = [22, 32, 16], LEG = [30, 30, 48], FOOT = [32, 20, 60], NOSE = [18, 14, 13];
+// a field's edge: 0 where `x` is under nothing, 1 where it is over, across `soft` either side of it
+const edge = (x, soft) => { const t = Math.min(1, Math.max(0, (x + soft) / (2 * soft))); return t * t * (3 - 2 * t); };
+// The stripes, narrow and sharply set off (Q): along the back, by how far round from the belly a place is (a: 0 the
+// belly, 1 the middle of the back), from the rump to the shoulders (x, m); five dark and four pale. On the face, by
+// how far a place lies above or below a line through the eye along the head (q, m), from behind the eye to the muzzle.
+const U = 0.00574, EYE = [0.0532, 0.0390], X0 = -0.038, X1 = 0.021, HEAD_END = 0.0684;
+const band = (a, at, half) => edge(half - Math.abs(a - at), 0.006);
+const along = (p) => edge(p.x - X0, 0.003) * edge(X1 - p.x, 0.004);
+const q = (p) => (p.y - EYE[1]) + 0.29 * (p.x - EYE[0]);
+const face = (p, lo, hi) => (p.part === 'body' ? edge(q(p) - lo, 0.0003) * edge(hi - q(p), 0.0003) * edge(p.x - (EYE[0] - 1.6 * U), 0.0015) * edge(HEAD_END - 0.5 * U - p.x, 0.001) * edge(Math.abs(p.z) - 0.25 * U, 0.0008) : 0);
 
 export default {
   name: 'Olympic chipmunk', latin: 'Neotamias amoenus caurinus', key: 'olympic-chipmunk', seed: 453,
@@ -60,79 +66,105 @@ export default {
   // that can be used was looked for or found)
   voices: { chip: { silent: true } },
   size: 0.207, body: { high: 0.045, long: 0.058, wide: 0.017 },
-  studio: { wide: 0.55, bar: 0.05 },
-  // The body, in metres, standing on all fours: the Douglas squirrel's drawing at 0.586 of its size and slimmer, its
-  // muzzle longer, its ears and hind feet as published (the agent's own, as the squirrel's is).
+  // one stride of a walk, a trot and a gallop (life/beasts.js `stridesOf`); its family asks only for its scamper,
+  // `scurry`, whose stride is shape.climb's (life/plateRig.js)
+  strides: { walk: 0.08, trot: 0.16, gallop: 0.26 },
+  // The body, in metres, standing on all fours: drawn as a plate (life/plate.js says what each drawing is; redrawn
+  // 2026-11-19): the Douglas squirrel's drawing at 0.574 of its size, slimmer, its muzzle drawn longer and more pointed,
+  // its ears, tail and hind feet as published (the agent's own, as the squirrel's is; no photograph was looked at).
   shape: {
-    unit: 0.06,
-    trunk: [
-      [-0.041, 0.0375, -0.0422, 0.0293, 0.0049, 0.5, 2], [-0.0387, 0.0416, -0.0404, 0.0199, 0.0098, 0.52, 2.1], [-0.0334, 0.0451, -0.034, 0.0146, 0.0128, 0.5, 2.25],
-      [-0.0246, 0.0463, -0.024, 0.0129, 0.0138, 0.5, 2.3], [-0.0141, 0.0451, -0.0135, 0.0135, 0.0138, 0.5, 2.3], [-0.0035, 0.0428, -0.0029, 0.0146, 0.0128, 0.52, 2.25],
-      [0.007, 0.0398, 0.0082, 0.0158, 0.0118, 0.54, 2.2], [0.0164, 0.0381, 0.0176, 0.017, 0.0103, 0.56, 2.15], [0.024, 0.0381, 0.0258, 0.0193, 0.0089, 0.55, 2.1],
-      [0.0299, 0.0398, 0.0322, 0.0234, 0.0079, 0.52, 2.05], [0.0346, 0.0428, 0.0369, 0.0275, 0.0074, 0.5, 2], [0.0381, 0.0457, 0.0404, 0.0316, 0.0069, 0.5, 2],
-    ],
-    withers: [0.0117, 0.0264],
-    spine: { hips: [-0.0258, 0.0316], chest: [0.0059, 0.0293], neck1: [0.0258, 0.0305], neck2: [0.0316, 0.034], neck3: [0.0363, 0.0375] },
-    blend: [0.0117, 0.007, 0.0047, 0.0041, 0.0035],
-    head: {
-      at: [0.0387, 0.0398], tilt: -16, square: 1.8, jaw: [0.0152, -0.0035],
-      stations: [[-0.0082, 0.0047, 0.0053, 0.0044], [-0.0047, 0.0085, 0.0075, 0.007], [0.0, 0.0107, 0.0086, 0.0085], [0.0047, 0.0113, 0.0087, 0.0088], [0.0094, 0.0104, 0.0081, 0.0083],
-        [0.0141, 0.0087, 0.007, 0.0069], [0.0182, 0.0067, 0.006, 0.0057], [0.0228, 0.0048, 0.0045, 0.0041], [0.0263, 0.0031, 0.0031, 0.0028]],
-      eye: EYE,
-      incisors: { long: 2.5, wide: 1.8 },
-      whiskers: { long: 22, count: 4 },
+    gait: 'bound',
+    plate: {
+      side: {
+        top: [[0, -0.0413, 0.0333], [0.6, -0.0402, 0.039], [1.2, -0.0367, 0.0436], [2, -0.031, 0.0471], [3, -0.023, 0.0488], [4, -0.0138, 0.0476], [5, -0.0046, 0.0448], [6, 0.0046, 0.0413], [7, 0.0126, 0.0385], [8, 0.0201, 0.0379], [9, 0.0264, 0.039], [10, 0.0321, 0.0413], [11, 0.0367, 0.0442], [12, 0.042, 0.0459], [13, 0.0486, 0.0453], [14, 0.0552, 0.0425], [15, 0.0612, 0.0379], [16, 0.0658, 0.0344], [16.6, 0.0678, 0.0316], [17, 0.0684, 0.0293]],
+        bottom: [[0, -0.0413, 0.0298], [0.6, -0.0408, 0.0241], [1.2, -0.0379, 0.0195], [2, -0.0333, 0.0166], [3, -0.0253, 0.0155], [4, -0.0149, 0.0155], [5, -0.0046, 0.0161], [6, 0.0046, 0.0166], [7, 0.0126, 0.0178], [8, 0.0201, 0.0201], [9, 0.0264, 0.023], [10, 0.0321, 0.0264], [11, 0.0367, 0.0287], [12, 0.042, 0.0293], [13, 0.0486, 0.0287], [14, 0.0552, 0.0281], [15, 0.0612, 0.0276], [16, 0.0658, 0.027], [16.6, 0.0678, 0.0276], [17, 0.0684, 0.0287]],
+      },
+      above: [[0, 0.003], [0.6, 0.0071], [1.2, 0.0101], [2, 0.0126], [3, 0.0141], [4, 0.0146], [5, 0.0141], [6, 0.0131], [7, 0.0116], [8, 0.0101], [9, 0.0086], [10, 0.0081], [11, 0.0087], [12, 0.0094], [13, 0.0091], [14, 0.0078], [15, 0.0059], [16, 0.0038], [16.6, 0.0024], [17, 0.0011]],
+      front: [[0, 0.5, 2.0, 2.0], [3, 0.5, 2.2, 2.2], [6, 0.52, 2.3, 2.2], [9, 0.5, 2.2, 2.0], [12, 0.5, 2.2, 2.0], [15, 0.5, 2.0, 2.0], [17, 0.5, 2.0, 2.0]],
+      spine: [['hips', -0.0264, 0.0333], ['loin', -0.0149, 0.0344], ['back', -0.0023, 0.0333], ['chest', 0.0103, 0.0298], ['neck1', 0.0218, 0.031], ['neck2', 0.0276, 0.0333], ['neck3', 0.0321, 0.0356], ['head', 0.0367, 0.0379]],
+      marks: { rump: 0.6, withers: [6.5, 8.5], poll: 11 },
+      jaw: { hinge: [0.0381, 0.0321], from: 14.3, soft: 0.8, lips: 0.42, open: 0.35 },
+      eye: { at: [0.0532, 0.039], r: 0.0027 },
     },
-    ear: { s: -0.0017, up: 0.0088, side: 0.0052, length: 0.016, width: 0.0105, out: 18, open: 30, round: 0.6 },
-    tail: { at: [-0.0398, 0.0363], length: 0.0932, width: 0.0058, depth: 0.005, hang: 100, bush: { long: 11, round: 5 } },
+    // its paws (the bear's, life/parts/paw.js): small, the claws curved (mm: the agent's)
+    paw: { kind: 'plantigrade', claw: 2.5, hind: 2.5, curve: 1.3 },
     fore: {
-      at: [0.0199, 0.0059], scapula: [0.0176, 0.0352], bones: [0.0129, 0.0141, 0.0082], angles: [28, -6, -72], pastern: [0.0041, 0.0012], hoof: [0.0035, 0.0015, 0.0035],
-      girth: [[0, 0.0034, 0.003, 0], [0.0064, 0.0037, 0.0032, 0.0006], [0.0129, 0.0025, 0.0022, 0], [0.0199, 0.0021, 0.0019, 0], [0.027, 0.0017, 0.0017, 0], [0.0311, 0.0011, 0.002, 0], [0.0352, 0.0009, 0.0021, 0]],
-      share: { at: [0.0188, 0.0205], reach: [0.0094, 0.0082], most: 0.5 },
+      at: [0.0207, 0.0072],
+      joints: [[0.0069, 0.0367, 0.0062], [0.0172, 0.0264, 0.0088], [0.0092, 0.0166, 0.0088], [0.0195, 0.0057, 0.0072], [0.0207, 0.0029, 0.0072]],
+      outline: [[0.0367, 0.0207, -0.0029, 0.0081, 0.0031], [0.031, 0.0241, -0.0011, 0.0106, 0.0036], [0.0258, 0.0247, 0.0011, 0.0116, 0.0041], [0.0207, 0.0218, 0.0034, 0.0116, 0.0046], [0.0161, 0.0201, 0.0063, 0.0106, 0.0052], [0.0115, 0.0212, 0.0121, 0.0096, 0.0052], [0.0069, 0.0224, 0.0161, 0.0091, 0.0057], [0.004, 0.023, 0.0172, 0.0088, 0.0057], [0.0029, 0.023, 0.0178, 0.0088, 0.0057]],
+      foot: { long: 0.0126, wide: 0.0052 }, web: 0,
     },
     hind: {
-      at: [-0.027, 0.0068], bones: [0.0223, 0.0263, 0.021], angles: [-48, 52, -80], pastern: [0.0059, 0.001], hoof: [0.0046, 0.0016, 0.0053],
-      girth: [[0, 0.0059, 0.0039, 0], [0.0079, 0.0069, 0.0046, 0.0012], [0.0171, 0.0054, 0.0044, 0.0006], [0.0236, 0.0039, 0.0032, 0], [0.0341, 0.003, 0.0025, 0],
-        [0.0446, 0.0021, 0.0021, 0], [0.0486, 0.002, 0.0022, 0], [0.0591, 0.0014, 0.0027, 0], [0.0696, 0.0011, 0.0029, 0]],
-      share: { at: [-0.0234, 0.0223], reach: [0.0129, 0.0117], most: 0.6 },
+      at: [-0.0287, 0.0088],
+      joints: [[-0.0264, 0.0333, 0.0072], [-0.0149, 0.0218, 0.0114], [-0.0333, 0.0057, 0.0088], [-0.0287, 0.0029, 0.0088]],
+      outline: [[0.0367, -0.0161, -0.039, 0.0091, 0.0031], [0.031, -0.0103, -0.0413, 0.0131, 0.0036], [0.0253, -0.008, -0.0419, 0.0152, 0.0041], [0.0207, -0.0092, -0.0402, 0.0157, 0.0052], [0.0161, -0.0143, -0.0379, 0.0146, 0.0062], [0.0115, -0.0207, -0.0367, 0.0131, 0.0067], [0.0075, -0.0258, -0.0367, 0.0121, 0.0067], [0.0046, -0.0276, -0.0367, 0.0116, 0.0067], [0.0029, -0.0276, -0.0367, 0.0116, 0.0067]],
+      foot: { long: 0.0398, wide: 0.0063 }, web: 0,
     },
-    neck: { low: [-0.55, -0.35, -0.3, 0.35], high: [0.28, 0.16, 0.12, -0.1], dip: -0.03 },
-    lie: { drop: 0.012, fore: { top: [0.012, 0.007], fetlock: [-0.006, 0.0025], out: 1.0, hoof: -0.5 }, hind: { top: [-0.006, 0.007], fetlock: [0.012, 0.0025], out: 1.2, hoof: 0.2 } },
+    ear: { at: [0.041, 0.0442], side: 0.006, length: 0.016, width: 0.0105, out: 18, open: 30, round: 0.6, back: 12 },
+    // the tail's bone (published) and its brush (the agent's: the hair's length is the old sheet's)
+    tail: { at: [-0.039, 0.0356], length: 0.0932, width: 0.0058, depth: 0.005, hang: 100 },
+    brush: { long: 11, round: 6, past: 0.7, core: 0.6, taper: 0.15, carry: { droop: 0.2, up: 1.35, curl: 1.4, run: -0.3, sit: 0.3 } },
+    teeth: { long: 2.5, wide: 1.8 },
+    whiskers: { long: 22, count: 4 },
+    // how it climbs and scampers (life/families/scurrier.js runs `cycle` by climb.stride; life/plateRig.js)
     climb: { stride: 0.26, splay: 0.012, flex: 0.35 },
+    // sitting up on its haunches (life/plateRig.js): the hips this high, the body turned up this far (radians)
+    sit: { high: 0.0126, pitch: 1.25, arch: 0.25, back: 0.15, fore: 0.1 },
+    neck: { low: [-0.55, -0.35, -0.3, 0.35], high: [0.28, 0.16, 0.12, -0.1], dip: -0.035 },
+    lie: { drop: 0.012, fore: { top: [0.012, 0.007], fetlock: [0.018, 0.0025], out: 1.0, hoof: 0 }, hind: { top: [-0.006, 0.007], fetlock: [-0.012, 0.0025], out: 1.2, hoof: 0 } },
   },
+  // The coat, as paint (life/plateCoat.js says what each table is): pale (Q), its stripes narrow and sharp: the
+  // middle one black, the next greyish, then brownish black, the lowest white, and under it one more dark; white below;
+  // black and white stripes on the face. Every shade and boundary is the agent's.
   coat: {
-    body: [
-      { colour: SIDES },                                                                                                   // pale (Q)
-      { colour: RUMP, where: (p) => 0.7 * (1 - smooth(-0.037, -0.025, p.x)) * smooth(0.4, 0.7, p.a) },
-      { colour: WHITE, where: (p) => band(p.a, 0.685, 0.032) * along(p.x) },                                              // the lowest stripe white (Q)
-      { colour: BROWNBLACK, where: (p) => band(p.a, 0.75, 0.028) * along(p.x) },                                         // then brownish black
-      { colour: GREY, where: (p) => band(p.a, 0.815, 0.03) * along(p.x) },                                               // greyish
-      { colour: BLACK, where: (p) => band(p.a, 0.88, 0.028) * along(p.x) },
-      { colour: GREY, where: (p) => band(p.a, 0.94, 0.025) * along(p.x) },
-      { colour: BLACK, where: (p) => smooth(0.965, 0.99, p.a) * smooth(-0.037, -0.027, p.x) },                             // and the middle one black, narrow and sharp
-      { colour: WHITE, where: (p) => 1 - smooth(0.22, 0.29, p.a) },                                                      // white below (Q)
+    rules: [
+      { colour: SIDES },
+      { colour: RUMP, where: (p) => (p.part === 'body' ? 0.6 * edge(-0.026 - p.x, 0.006) * edge(p.a - 0.5, 0.1) : 0) },
+      { colour: BROWNBLACK, where: (p) => (p.part === 'body' ? band(p.a, 0.725, 0.026) * along(p) : 0) },
+      { colour: WHITE, where: (p) => (p.part === 'body' ? band(p.a, 0.79, 0.03) * along(p) : 0) },                         // the lowest stripe white (Q)
+      { colour: BROWNBLACK, where: (p) => (p.part === 'body' ? band(p.a, 0.855, 0.026) * along(p) : 0) },                  // then brownish black
+      { colour: GREY, where: (p) => (p.part === 'body' ? band(p.a, 0.915, 0.026) * along(p) : 0) },                        // greyish
+      { colour: WHITE, where: (p) => (p.part === 'body' ? edge(0.27 - p.a, 0.03) : 0) },                                     // white below (Q)
+      { colour: HEAD, where: (p) => (p.part === 'body' ? edge(p.t - 10.4, 0.4) * edge(p.a - 0.32, 0.05) : 0) },
+      { colour: BLACK, where: (p) => (p.part === 'body' ? edge(p.a - 0.962, 0.006) * edge(p.x - X0, 0.003) * edge(EYE[0] - p.x, 0.003) : 0) },   // and the middle one black, onto the crown
+      { colour: WHITE, where: (p) => face(p, 0.3 * U, 0.62 * U) },                                                           // the face: white over the eye,
+      { colour: FACEDARK, where: (p) => face(p, -0.22 * U, 0.22 * U) },                                                      // dark through it,
+      { colour: WHITE, where: (p) => face(p, -0.64 * U, -0.3 * U) },                                                         // white under it,
+      { colour: FACEDARK, where: (p) => face(p, -0.98 * U, -0.72 * U) * edge(p.x - EYE[0] + 0.4 * U, 0.001) },              // and a dark stripe over the cheek
+      { colour: NOSE, where: (p) => (p.part === 'body' ? edge(p.t - 16.55, 0.1) * edge(p.a - 0.42, 0.06) : 0) },
+      { colour: LEG, where: (p) => (p.part === 'limb' ? edge(0.025 - p.y, 0.006) : 0) },
+      { colour: FOOT, where: (p) => (p.part === 'limb' ? edge(0.008 - p.y, 0.003) : 0) },
     ],
-    head: [
-      { colour: HEAD },
-      { colour: BLACK, where: (p) => smooth(0.0075, 0.0095, p.up) * (1 - smooth(0.0025, 0.004, Math.abs(p.z))) },
-      { colour: WHITE, where: (p) => band(p.up, EYE.up + 0.0029, 0.0012) * smooth(-0.005, -0.002, p.s) * (1 - smooth(0.017, 0.021, p.s)) },
-      { colour: FACEDARK, where: (p) => band(p.up, EYE.up, 0.0013) * smooth(-0.007, -0.003, p.s) * (1 - smooth(0.02, 0.024, p.s)) },
-      { colour: WHITE, where: (p) => band(p.up, EYE.up - 0.003, 0.0013) * smooth(-0.005, -0.002, p.s) * (1 - smooth(0.018, 0.022, p.s)) },
-      { colour: FACEDARK, where: (p) => band(p.up, EYE.up - 0.0055, 0.0011) * smooth(-0.005, -0.002, p.s) * (1 - smooth(0.012, 0.015, p.s)) },
-      { colour: WHITE, where: (p) => 1 - smooth(-0.0075, -0.0035, p.up) },
-      { colour: [18, 14, 13], where: (p) => smooth(0.024, 0.026, p.s) * smooth(-0.0017, 0.0, p.up) },
-    ],
-    leg: ({ d, pastern }) => (pastern ? [32, 20, 58] : [30, 32, 40 + 10 * smooth(0.4, 1, d)]),
-    hoof: [26, 14, 20],
+    planes: [],
+    tones: { light: [3, -4, 7], shade: [-2, 2, -6] },
+    turn: { top: 1, under: 0.8 },
+    hair: { count: 0.35, long: 0.004 },
+    claw: [26, 14, 20], pad: [28, 14, 40],
     ear: { outer: [30, 10, 46], inner: [24, 22, 20], edge: [34, 12, 68] },
-    tail: { top: [26, 14, 24], under: [34, 52, 54] },
-    antler: [30, 10, 30],
     eye: { iris: [20, 30, 7], pupil: [0, 0, 3] },
-    hair: { long: () => false },
-    fur: 1.4,
     // the brush: greyish black frosted pale above, ochraceous below (Q)
     bush: { top: [28, 14, 26], band: [22, 16, 11], fringe: [36, 18, 74], under: [34, 52, 54] },
     bits: { teeth: [32, 78, 52], whiskers: [30, 12, 9], cone: [24, 42, 27], flake: [26, 44, 33] },
   },
+
+  // Who it may be, and the poses its contact sheet shows: each the fields its family asks for (life/families/scurrier.js)
+  who: { adult: {} },
+  poses: {
+    alert: { neck: 0.9, ears: 0.6, tail: 0.55, curl: 0.3 },
+    scamper: { scurry: 1, cycle: 0.1, tail: 0.55, curl: 0.3 },
+    stretched: { scurry: 1, cycle: 0.6, tail: 0.55, curl: 0.3 },
+    sit: { sit: 1, tail: 0.75, curl: 0.5, neck: 0.55 },
+    watch: { sit: 1, tail: 0.75, curl: 0.5, neck: 0.7, flick: 0.8, head: { yaw: 0.7 } },
+    frozen: { crouch: 1, sit: 0, tail: 0.2, neck: 0.5, ears: -0.4 },
+    sniff: { neck: 0.05, head: { pitch: -0.2 }, tail: 0.55, curl: 0.3 },
+    climb: { cling: 1, scurry: 0.6, cycle: 0.3, tail: 0.35, curl: 0.15, neck: 0.75 },
+  },
+  studio: { high: 0.1, tall: 0.07, middle: 0.0,
+    rows: [
+      { span: 0.24, high: 0.16, cells: [['adult', 'adult', 'alert', 'side'], ['front', 'adult', 'alert', 'front'], ['behind', 'adult', 'alert', 'behind'], ['three-quarters', 'adult', 'alert', 'quarter']] },
+      { span: 0.24, high: 0.15, cells: [['from above', 'adult', null, 'above'], ['scampering, gathered', 'adult', 'scamper', 'side'], ['scampering, stretched', 'adult', 'stretched', 'side'], ['nose in the litter', 'adult', 'sniff', 'quarter']] },
+      { span: 0.24, high: 0.14, cells: [['sitting up', 'adult', 'sit', 'side'], ['sitting up, watching you', 'adult', 'watch', 'quarter'], ['frozen still', 'adult', 'frozen', 'quarter'], ['on a trunk (it never takes to one)', 'adult', 'climb', 'up']] },
+    ] },
   card: {
     size: 'About 21 cm from nose to tail\'s end, of which the tail is 9 cm; about 50 g.',
     marks: ['Small and pale, with narrow, sharp stripes: black, grey and white', 'Black and white stripes on the face', 'White below; the tail ochraceous beneath'],

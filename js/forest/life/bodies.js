@@ -102,6 +102,7 @@ const CENSUS = {
   tier: oneOf(...Object.keys(TIER)), source: 'string', mean: optional('number'),
   party: optional(test((v) => Array.isArray(v) && v.length === 2 && v.every(Number.isInteger) && v[0] >= 1 && v[0] <= v[1], 'the fewest and the most that go about together, two whole numbers')),
   clock: optional(oneOf('day', 'night', 'dusk', 'any')), wave: optional(oneOf(true)), extra: optional(oneOf(true)),
+  sure: optional(test((v) => Array.isArray(v) && v.length === 2 && v.every(Number.isInteger) && v[0] >= 0 && v[0] <= v[1], 'the fewest and the most parties on any visit, two whole numbers')),
 };
 // What every kind's way has (life/species/index.js says what each is). A family's own numbers are checked against
 // its family's fields when the ways are bound to their families (life/families/index.js).
@@ -130,16 +131,20 @@ const BODY = {
 const tip = maybe(tuple(colour, 'number'));               // a colour laid on a feather's tip, and how much of it
 const band = tuple('number', 'number', colour, oneOf('outer', 'inner', 'edge', 'both'));     // across a flight feather: from, to (shares of its length), colour, which web
 const barring = tuple(colour, 'number', 'number');        // bars across a body feather or the tail: colour, how many, how wide
-const POSE = rest({ pitch: 'number', lift: 'number', feet: rest({ mode: oneOf('grip', 'flat', 'tuck'), walk: optional(nums(4)) }, 'number') }, either('number', 'boolean', rest({}, 'number')));
+// (feet that 'reach' are a raptor's: thrown forward, trailed, or closed round a fish: life/parts/raptor.js)
+const POSE = rest({ pitch: 'number', lift: 'number', feet: rest({ mode: oneOf('grip', 'flat', 'tuck', 'reach'), walk: optional(nums(4)) }, 'number') }, either('number', 'boolean', rest({}, 'number')));
 const BIRD = {
   ...BODY, plan: optional(oneOf('bird')),
   plate: { wide: 'number', bar: 'number' },
   shape: {
     top: points, bottom: points, half: points, widest: 'number', neck: nums(2),
+    contour: optional(oneOf(0)),                          // 0: none of the lifted contour feathers at the nape and throat (life/bird.js): the eagle's
     // (fields marked with an owner's name were declared on 2026-11-16 before twenty agents built at once, each
     // its own feature, so that a sheet can use another's feature before it is merged; each owner gives its own
     // field its real form here when it builds it)
-    eye: { x: 'number', y: 'number', r: 'number', shine: optional(colour) },                // shine: the owls' (life/parts/owl.js)
+    eye: { x: 'number', y: 'number', r: 'number', shine: optional(colour),                  // shine: the owls' (life/parts/owl.js)
+      // the eagle's (life/parts/raptor.js): the brow, a shelf over each eye
+      ridge: optional({ long: 'number', out: 'number', high: optional('number'), ahead: optional('number'), thick: optional('number') }) },
     bill: { culmen: 'number', drop: 'number', gape: 'number',
       // the raptors' (life/parts/raptor.js): a hooked upper mandible, its tip `drop` mm under the gape line, curling
       // from `from` of the way along the culmen; a cere `long` mm from the feathers (the culmen is then from the cere)
@@ -148,14 +153,18 @@ const BIRD = {
       // the tip as shares of its base's, and where its nostril is
       duck: optional({ flat: 'number', nail: 'number', serrate: 'number', tip: optional('number'), deep: optional('number'), nostril: optional('number') }) },
     wing: { chord: 'number', wrist: nums(2), aim: nums(2), up: points, down: points, rest: 'number', proud: 'number', span: 'number', shoulder: nums(3),
-      arm: 'number', lead: 'number', sweep: 'number', root: 'number', tipChord: 'number' },
+      arm: 'number', lead: 'number', sweep: 'number', root: 'number', tipChord: 'number',
+      // the spread wing's form (life/bird.js "spread wings" says what each is, and what it is if not given)
+      camber: optional('number'), rise: optional('number'), twist: optional(nums(2)), dihedral: optional('number'), joined: optional('boolean') },
     tail: { length: 'number', root: 'number', rootHalf: 'number', feathers: 'number', width: 'number', closed: 'number', graded: 'number', point: 'number',
-      droop: 'number', tent: 'number', fork: optional('number'), spine: optional('number'),
+      droop: 'number', tent: 'number', fork: optional('number'), spine: optional('number'), sheer: optional('boolean'),
       fan: optional({ spread: 'number' }) },                                                // fan: the grouse's (life/parts/display.js)
     leg: { knee: nums(3), shin: 'number', tarsus: 'number', thick: nums(3), splay: 'number', yaw: optional(rest({}, 'number')),
       toes: { mid: 'number', side: 'number', hind: 'number', claw: 'number', hindClaw: 'number' },
       feathered: optional({ to: oneOf('tarsus', 'toes'), full: 'number' }),                 // the owls' (the grouse use it): life/parts/owl.js
       talons: optional({ claw: 'number', curve: 'number' }),                                 // the raptors': claws `claw` mm deep at the root, turning down through `curve` radians (life/parts/raptor.js)
+      // the eagle's (life/parts/raptor.js): the shin's long feathers, hanging round the heel
+      trousers: optional({ long: 'number', girth: 'number', from: optional('number'), bag: optional('number'), lappets: optional('number'), drape: optional('number'), hang: optional('number') }),
       web: optional({ share: 'number', scallop: optional('number') }) },                     // the ducks' (life/parts/duck.js): how far out the webs reach, and how far their edge is cut back
     crest: optional({ sunk: 'number', paint: optional(nums(2)), lobes: list(nums(6), 1) }),
     // the owls' (life/parts/owl.js says what each is)
@@ -167,6 +176,7 @@ const BIRD = {
     comb: optional({ long: 'number', high: 'number', rest: optional('number'), wide: optional('number'), ahead: optional('number') }),
     ruff: optional({ long: 'number', at: optional('number'), around: optional(nums(2)), wide: optional('number'), fan: optional('number'), raise: optional('number'), tilt: optional('number') }),
     float: optional({ line: 'number' }),                                                    // the ducks' (life/parts/swim.js): its waterline, mm above its belly's lowest point
+    prey: optional({ long: 'number', deep: 'number', wide: 'number' }),                     // the eagle's (life/parts/raptor.js): a fish, part of its mesh, that a pose shows
   },
   poses: rest({ perched: POSE, level: POSE, flight: POSE }, POSE),
   plumage: {
@@ -177,7 +187,9 @@ const BIRD = {
       under: colour, underCovert: colour, underCovertTip: tip, underBars: list(band),
       fold: { primaries: 'number', secondaries: 'number', secondaryEnd: 'number', greater: 'number', greaterEnd: 'number', median: 'number', medianEnd: 'number',
         feather: optional('number') },                                                    // feather: the raptors' (how wide the folded wing's feathers are painted, as a multiple of a songbird's)
-      spread: { primaries: 'number', secondaries: 'number', shape: nums(9) } },
+      // `fingers`: the eagle's (life/parts/raptorPaint.js `paintRaptorWing` says what each number is): the spread wing
+      // painted as a plank with slotted primaries, in place of the fan every other bird has
+      spread: { primaries: 'number', secondaries: 'number', shape: nums(9), fingers: optional(rest({ count: 'number' }, either('number', colour))) } },
     // `tip`: [which feathers from the middle out, colour, how much of each]
     tail: { web: colour, edge: colour, under: colour, point: 'number', middle: optional(colour), shaft: optional(colour), bars: optional(barring),
       band: optional(list(tuple('number', 'number', colour))),                              // the grouse's: bands right across the tail, [from, to, colour] (life/parts/displayPaint.js)
@@ -185,7 +197,12 @@ const BIRD = {
     bill: { upper: colour, lower: colour, lowerBase: optional(tip), cere: optional(colour),   // cere: the raptors'
       nail: optional(colour), ridge: optional(colour) },                                     // the ducks': the nail, and a stripe along the top
     claw: optional(colour),                                                                 // the raptors': the talons' colour (life/parts/raptorPaint.js)
-    mouth: colour, eye: { iris: colour, pupil: colour }, leg: colour, shin: colour,
+    mouth: colour, eye: { iris: colour, pupil: colour, rim: optional(colour), small: optional('number') }, leg: colour, shin: colour,     // rim, small: the eagle's
+    // the eagle's (life/parts/raptorPaint.js): the shadow under its brow, the bare skin before its eye and the corner of
+    // its mouth; the pale edges of its trousers' feathers; the fish it carries
+    face: optional({ shade: colour, lore: optional(colour), gape: optional(colour) }),
+    trousers: optional({ edge: colour }),
+    prey: optional({ back: colour, side: colour, belly: colour, fin: colour, spot: optional(colour), band: optional(colour) }),
     web: optional(colour),                                                                  // the ducks': the webs between the toes
     disc: optional({ face: colour, rim: colour, band: optional(colour), eyering: optional(colour), eyeringWide: optional('number'), brow: optional(colour), bristle: optional(colour),      // the owls'
       rings: optional(tuple(colour, 'number')), rays: optional(tuple(colour, 'number')), pupil: optional('number'), lid: optional(colour), streak: optional(colour) }),
@@ -227,6 +244,51 @@ const BEAST = {
   },
   coat: rest({ body: list(RULE, 1), head: list(RULE, 1), leg: 'function', hoof: optional(colour), claw: optional(colour), pad: optional(colour), eye: { iris: colour, pupil: colour } }, 'any'),
   studio: optional({ wide: 'number', bar: 'number' }),          // a small one's contact sheet (life/parts/rodentStudio.js): metres across, and its scale bar
+};
+
+// ---- a beast drawn as a plate (life/plate.js, life/plateRig.js, life/plateCoat.js): the same plan, its body drawn
+// from the side, from above and from the front, and each limb from the side and the front. What each table is, is
+// said at the head of life/plate.js; what the rig and the paint take besides, at the heads of theirs.
+const PLATE_LIMB = rest({
+  at: nums(2),                                             // where its foot stands: x, and how far out to the side
+  joints: list(nums(3), 4), outline: list(nums(5), 4),     // its joints as it stands; its outline, [y, front, back, out, in] from its top down
+  hoof: optional(rest({ long: 'number', high: 'number', wide: 'number' }, 'number')),      // a hoof, or a paw's foot (with shape.paw)
+  foot: optional(rest({ long: 'number', wide: 'number' }, 'number')), web: optional('number'),
+  proud: optional('number'), sink: optional('number'), square: optional('number'), share: optional('number'),
+}, 'any');
+const PLATE_FOLD = rest({ top: nums(2), fetlock: nums(2), out: 'number', hoof: 'number' }, 'any');
+const PLATE = {
+  ...BODY, plan: oneOf('beast'),
+  size: 'number', body: { high: 'number', long: 'number', wide: 'number' },
+  strides: { walk: 'number', trot: 'number', gallop: 'number' },
+  shape: rest({
+    plate: rest({
+      side: { top: list(nums(3), 4), bottom: list(nums(3), 4) },      // the upper and the lower line: [t, x, y]
+      above: list(nums(2), 3), front: list(nums(4), 2),               // [t, half width]; [t, widest at, squareness over, under]
+      spine: list('any', 8),                                         // [bone, x, y] from the hind end to the head
+      marks: { rump: 'number', withers: nums(2), poll: 'number' },
+      jaw: rest({ hinge: nums(2), from: 'number', lips: 'number' }, 'number'), eye: rest({ at: nums(2), r: 'number' }, 'number'),
+      mane: optional(rest({ from: 'number', to: 'number', at: nums(2) }, 'number')),
+    }, 'any'),
+    fore: PLATE_LIMB, hind: PLATE_LIMB,
+    ear: rest({ at: nums(2), length: 'number', width: 'number', out: 'number', open: 'number' }, 'number'),
+    tail: optional(rest({ at: nums(2), length: 'number', width: 'number', depth: 'number', hang: 'number' }, 'number')),      // (a tail that is not in the outline)
+    antler: optional(rest({ at: nums(2), side: 'number', base: 'number', tip: 'number', beam: list(nums(3), 3), tines: list('any', 1) }, 'number')),
+    paw: optional(PAW), gait: optional(oneOf('hoof', 'paw', 'bound')),
+    neck: { low: nums(4), high: nums(4), dip: 'number' }, lie: { drop: 'number', fore: PLATE_FOLD, hind: PLATE_FOLD },
+    // (each a pose's own numbers, for the rig: life/plateRig.js; `long` is what the weasels' family reads)
+    sit: optional(rest({}, 'number')), rear: optional(rest({}, 'any')), spar: optional(rest({}, 'number')), swim: optional(rest({}, 'any')),
+    young: optional(rest({}, 'number')), bull: optional(rest({}, 'any')), long: optional(rest({}, 'any')), arch: optional('number'), tailUp: optional('number'),
+  }, 'any'),
+  coat: rest({
+    rules: list(rest({ colour }, 'any'), 1), planes: optional(list(rest({ at: nums(2), r: nums(2), tone: 'number' }, 'any'), 0)),
+    tones: optional({ light: nums(3), shade: nums(3) }), turn: optional({ top: 'number', under: 'number' }), hair: optional(rest({}, 'number')),
+    ear: { outer: colour, inner: colour, edge: colour }, eye: { iris: colour, pupil: colour },
+    hoof: optional(colour), claw: optional(colour), pad: optional(colour), antler: optional(colour), tail: optional({ top: colour, under: colour }),
+  }, 'any'),
+  // who it may be (pose fields its family sets once), the poses its contact sheet shows, and how that sheet is laid out
+  who: optional(rest({}, rest({}, 'any'))), poses: optional(rest({}, rest({}, 'any'))),
+  studio: optional(rest({ rows: optional(list({ span: 'number', high: 'number', cells: list('any', 1) }, 1)) }, 'any')),
 };
 
 // ---- a bat, which flies and hangs (life/bat.js, life/batRig.js, life/batPaint.js). The sheet's numbers are millimetres.
@@ -312,17 +374,25 @@ const SALAMANDER = {
 //                  to 0.02 ran it back through a whole stride
 const birdRest = (sheet) => {
   const p = sheet.poses.perched;
+  // (a raptor's wings have two more turns, and an eagle a fish that a pose shows: life/parts/raptor.js. Neutral, they
+  // are nothing, and they are here so that none is carried from one activity into the next)
+  const more = sheet.shape.leg.talons ? { wrist: 0, twist: 0, ...(sheet.shape.prey ? { prey: 0 } : null) } : null;
   return { pitch: p.pitch, lift: p.lift, roll: 0, lean: 0, spread: 0, flap: 0, hand: 0, sweep: 0, droop: 0, gape: 0,
     head: { yaw: 0, pitch: p.head && p.head.pitch != null ? p.head.pitch : 0.05, roll: 0 },
-    tail: { pitch: p.tail && p.tail.pitch != null ? p.tail.pitch : 0, fan: 0, yaw: 0, prop: null }, feet: { mode: 'flat' } };
+    tail: { pitch: p.tail && p.tail.pitch != null ? p.tail.pitch : 0, fan: 0, yaw: 0, prop: null }, feet: { mode: 'flat' }, ...more };
 };
 export const BODIES = {
   bird: { fields: BIRD, size: (sheet) => sheet.shape.wing.chord * 0.0018, body: () => null, rest: birdRest, whole: ['feet'] },
   // (a beast's neutral pose: standing square, no gait, the head as it stands, the ears out, the tail down, every foot
   // on the plane it stands on; every field life/beastRig.js reads but `cycle`, a phase that runs on, and `scale` and
   // `antler`, which are who the animal is and are set by its family. Its middle is the barrel's, let down as it lies.)
-  beast: { fields: BEAST, size: (sheet) => sheet.size, body: (sheet) => sheet.body,
-    rest: () => ({ walk: 0, trot: 0, gallop: 0, high: 0, stamp: 0, lie: 0, neck: 0.6, head: { yaw: 0, pitch: 0 }, jaw: 0, ears: 0.2, tail: 0, ground: [0, 0, 0, 0] }),
+  beast: { fields: pick((kind) => (kind && kind.shape && kind.shape.plate ? PLATE : BEAST), 'a beast, drawn as a plate (shape.plate) or as rings (shape.trunk)'), size: (sheet) => sheet.size, body: (sheet) => sheet.body,
+    // (a plate's has every way it may hold itself, at nothing, so that one activity's is let go by the next; the
+    // counts that only grow, `cycle`, `beat`, `rake` and `roll`, are left out of it: eased back, they would run backwards)
+    rest: (sheet) => (sheet && sheet.shape && sheet.shape.plate
+      ? { walk: 0, trot: 0, gallop: 0, high: 0, stamp: 0, lie: 0, sit: 0, rear: 0, arms: 0, box: 0, rub: 0, crouch: 0, spar: 0, push: 0, cling: 0, swim: 0, dive: 0, porpoise: 0, slide: 0,
+        arch: 0, turn: 0, dig: 0, hold: 0, scratch: 0, shake: 0, neck: 0.6, head: { yaw: 0, pitch: 0, tilt: 0 }, jaw: 0, ears: 0.2, tail: 0, wag: 0, ground: [0, 0, 0, 0] }
+      : { walk: 0, trot: 0, gallop: 0, high: 0, stamp: 0, lie: 0, neck: 0.6, head: { yaw: 0, pitch: 0 }, jaw: 0, ears: 0.2, tail: 0, ground: [0, 0, 0, 0] }),
     middle: (bird) => { const b = bird.body, lie = (bird.pose && bird.pose.lie) || 0; return b ? [b.long * 0.1, b.high * (0.85 - 0.5 * lie)] : [0, bird.size * 0.25]; },
     frame: 1.5 },
   // (a bat's neutral pose is the roost, wings folded, hanging; hung from its feet it is below them, and in flight its

@@ -8,7 +8,8 @@ import { CASTER_LAYER } from '../world/instancer.js';
 // metre of the walk: grown to the whole valley its texels would be half again as
 // wide, and the shadows on the old terrace would no longer be the ones approved.
 export function createSunMap(U, size) {
-  const target = new THREE.WebGLRenderTarget(size, size, { depthBuffer: true });
+  // (its colour is never written or read, and three r160 makes no target without one: a byte a texel, not four)
+  const target = new THREE.WebGLRenderTarget(size, size, { depthBuffer: true, format: THREE.RedFormat });
   target.texture.minFilter = target.texture.magFilter = THREE.NearestFilter;
   target.depthTexture = new THREE.DepthTexture(size, size, THREE.UnsignedIntType);
   // Read through a shadow sampler: the GPU compares the four texels round a point and blends the answers

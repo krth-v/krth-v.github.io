@@ -23,7 +23,9 @@ const _r = [0, false, 0, 0, 0], _c = [0, 0, 0, 0, 0];
 const toRiver = (x, z) => Math.max(0, river(x, z, _r)[0]);            // metres from the river's water (0 in it)
 const toCreek = (x, z) => Math.max(0, creek(x, z, _c)[0]);            // metres from the creek (99 far from it)
 
-export function createSound() {
+// `heard(event, seconds, level)`, if given, is told of each voice as it begins to play: what was said (life/visit.js
+// `say`: its kind, where, and by whom), for how long and how loud (js/forest/hud.js shows where it comes from).
+export function createSound({ heard = null } = {}) {
   let ctx = null, master = null, limit = null, meter = null, started = false, muted = false, paused = false, primed = false, seen = -1, playing = 0, control = null;
   const buffers = new Map(), beds = {}, told = { handled: 0, played: 0, quiet: 0, silent: 0, last: '' };
   const wanted = { river: 0, rush: 0, creek: 0, falls: 0, rumble: 0, air: 0 };
@@ -152,7 +154,7 @@ export function createSound() {
     pan.pan.value = clamp(side, -1, 1) * 0.8;
     out.connect(air); air.connect(pan); pan.connect(master);
     playing += 1; told.played += 1; told.last = id;
-    const done = (after) => { window.setTimeout(() => { playing -= 1; pan.disconnect(); }, after * 1000 + 200); };
+    const done = (after) => { if (heard) heard(event, after, level); window.setTimeout(() => { playing -= 1; pan.disconnect(); }, after * 1000 + 200); };
     if (rec) {
       const source = ctx.createBufferSource();
       source.buffer = buffers.get(rec.file); out.gain.value = level;
@@ -201,9 +203,12 @@ export function createSound() {
     wanted.river = 0.5 / (1 + (dr / 14) ** 2); wanted.rush = 0.2 / (1 + (dr / 7) ** 2);
     wanted.creek = dc > 60 ? 0 : 0.16 / (1 + (dc / 4) ** 2);
     wanted.falls = 0.3 / (1 + (df / 8) ** 2); wanted.rumble = 0.18 / (1 + (df / 10) ** 2);        // (a creek's leap of three metres, not a river's)
-    // the air in the crowns: a little always, more in the open, coming and going
-    // (as first set, a sixth of this, the wood between two calls was silent: 54 dB under full scale)
-    wanted.air = (0.13 + 0.2 * open) * (0.6 + 0.4 * Math.sin(t * 0.19) * Math.sin(t * 0.07 + 1) + 0.2 * Math.sin(t * 0.53 + 2));
+    // the air in the crowns: a little always, more in the open, barely coming and going
+    // (As first set the wood between two calls was silent, 54 dB under full scale; at five times that it was a wash
+    // that ebbed and flowed over everything, and the owner, 2026-11-18: "The general washy sound of the wind that
+    // ebbs and flows needs to be tuned down significantly". So: about a quarter of that level, and a swell a third as
+    // deep. The animals' voices are as they were.)
+    wanted.air = (0.036 + 0.045 * open) * (0.82 + 0.12 * Math.sin(t * 0.19) * Math.sin(t * 0.07 + 1) + 0.06 * Math.sin(t * 0.53 + 2));
     for (const name of Object.keys(wanted)) beds[name].gain.setTargetAtTime(Math.max(0, wanted[name]), now, 0.3);
     const riverSide = -sideOf(drx, drz) * clamp(dr / 10, 0, 1) * 0.7, creekSide = -sideOf(dcx, dcz) * clamp(dc / 4, 0, 1) * 0.7, fallsSide = sideOf(fx, fz) * clamp(df / 6, 0, 1) * 0.8;
     beds.river.pan.setTargetAtTime(riverSide, now, 0.3); beds.rush.pan.setTargetAtTime(riverSide, now, 0.3);

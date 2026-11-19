@@ -2,6 +2,7 @@ import { makeCanvas, css, shift, mix, stroke, rng, cutoutTexture } from '../pain
 import { SHEET, BCELLS, PASTERN } from './beast.js';
 import { pawCoat } from './parts/paw.js';
 import { paintRodent } from './parts/rodentCoat.js';
+import { paintPlate } from './plateCoat.js';
 
 // A big animal's paint: one sheet for the whole animal (life/beast.js lays its cells out), painted when the page
 // loads from the coat table of its species sheet. Colours are [hue, saturation, lightness].
@@ -44,6 +45,7 @@ function rgb([h, s, l]) {
 }
 
 export function paintCoat(sheet, built, look) {
+  if (sheet.shape.plate) return paintPlate(sheet, built, look);          // (a beast drawn as a plate has its own paint: life/plateCoat.js)
   const canvas = makeCanvas(W, H), ctx = canvas.getContext('2d'), C = sheet.coat, r = rng(sheet.seed ?? 211);
   const ragged = look.paint.ragged, n1 = noise3(sheet.seed ?? 211), n2 = noise3((sheet.seed ?? 211) + 17);
   const box = (cell) => [Math.floor(cell[0] * W), Math.floor(cell[1] * H), Math.ceil(cell[2] * W), Math.ceil(cell[3] * H)];

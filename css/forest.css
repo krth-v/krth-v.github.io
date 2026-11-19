@@ -50,3 +50,71 @@
 .forest-sound ul { margin: 4px 0 0; padding-left: 16px; }
 .forest-sound li { margin: 2px 0; }
 .forest-sound a { color: inherit; }
+
+/* ---- what is over the forest for the visitor (js/forest/hud.js) */
+
+/* the circle in the middle of the view, while the mouse turns the head: thin and hollow, so that nothing is hidden */
+.forest-aim {
+  position: fixed; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; box-sizing: border-box; z-index: 3;
+  border: 1px solid rgba(250, 246, 235, 0.62); border-radius: 50%; box-shadow: 0 0 0 1px rgba(14, 18, 12, 0.16);
+  pointer-events: none; opacity: 0; transition: opacity 0.25s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.forest-aim.on { opacity: 1; }
+.forest-aim.on.hot { transform: scale(0.5); border-color: rgba(250, 246, 235, 0.9); }
+
+/* where a voice comes from: rings spreading from it, for as long as it is heard */
+.forest-call {
+  --r: 28px;
+  position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 2; pointer-events: none; opacity: 0; display: none;
+}
+.forest-call.on { display: block; }
+.forest-call.edge i { left: -56px; top: -56px; width: 112px; height: 112px; }
+.forest-call i {
+  position: absolute; left: calc(-1 * var(--r)); top: calc(-1 * var(--r)); width: calc(2 * var(--r)); height: calc(2 * var(--r)); box-sizing: border-box;
+  border: 1.5px solid rgba(250, 244, 226, 0.95); border-radius: 50%; box-shadow: 0 0 0 1px rgba(20, 24, 18, 0.22);
+  transform: scale(0.16); opacity: 0; animation: forest-ripple 1.8s linear infinite;
+}
+.forest-call i:nth-child(2) { animation-delay: -0.6s; }
+.forest-call i:nth-child(3) { animation-delay: -1.2s; }
+@keyframes forest-ripple {
+  0% { transform: scale(0.16); opacity: 0; }
+  14% { opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* the instructions: a line of them at first, and the whole behind the "?" (or H) */
+.forest-hint {
+  position: fixed; left: 50%; bottom: 54px; z-index: 4; margin: 0; padding: 6px 14px; border-radius: 3px; white-space: nowrap; max-width: 92vw;
+  overflow: hidden; text-overflow: ellipsis; transform: translateX(-50%);
+  font: 13px/1.4 Georgia, 'Times New Roman', serif; color: #efe9da; background: rgba(24, 28, 22, 0.55);
+  pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
+}
+.forest-hint.on { opacity: 1; }
+.forest-help-button {
+  position: fixed; right: 18px; bottom: 16px; z-index: 5; width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  font: 15px/1 Georgia, 'Times New Roman', serif; color: #efe9da; background: rgba(24, 28, 22, 0.55);
+  border: 1px solid rgba(239, 233, 218, 0.35); cursor: pointer;
+}
+.forest-help-button:hover, .forest-help-button:focus-visible, .forest-help-button[aria-expanded="true"] { background: rgba(24, 28, 22, 0.8); border-color: rgba(239, 233, 218, 0.7); outline: none; }
+.forest-help {
+  position: fixed; right: 18px; bottom: 54px; z-index: 5; width: min(370px, calc(100vw - 36px)); max-height: calc(100vh - 80px); overflow: auto; box-sizing: border-box;
+  padding: 16px 20px 10px; border-radius: 10px;
+  color: #2a2620; background: rgba(240, 233, 216, 0.95); box-shadow: 0 10px 34px rgba(8, 12, 8, 0.45);
+  font: 14px/1.45 Georgia, 'Times New Roman', serif;
+  opacity: 0; pointer-events: none; transform: translateY(10px); transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.forest-help.on { opacity: 1; pointer-events: auto; transform: none; }
+.forest-help h2 { margin: 0 0 8px; font-size: 20px; font-weight: normal; }
+.forest-help dl { margin: 0; }
+.forest-help dt { margin-top: 8px; color: #7a705e; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.forest-help dd { margin: 1px 0 0; }
+.forest-help p { margin: 10px 0 6px; font-size: 12px; color: #8a806c; }
+.forest-help kbd { font: 12px/1 ui-monospace, Menlo, monospace; padding: 1px 5px; border: 1px solid #b9ae95; border-radius: 3px; background: rgba(255, 252, 244, 0.6); color: #3a352c; }
+.forest-aim[hidden], .forest-hint[hidden], .forest-help-button[hidden], .forest-help[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .forest-aim, .forest-hint, .forest-help { transition: none; }
+  .forest-call i { animation: none; opacity: 0.9; transform: scale(1); }
+  .forest-call i:nth-child(2) { transform: scale(0.6); }
+  .forest-call i:nth-child(3) { transform: scale(0.3); }
+}

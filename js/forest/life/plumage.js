@@ -3,7 +3,7 @@ import { paintDisplay } from './parts/displayPaint.js';
 import { makeCanvas, css, vary, shift, stroke, rng, cutoutTexture } from '../paint/brush.js';
 import { curve } from './skin.js';
 import { CELLS, SKIN_EDGE, outline } from './bird.js';
-import { paintRaptor } from './parts/raptorPaint.js';
+import { paintRaptor, paintRaptorWing, paintRaptorLate } from './parts/raptorPaint.js';
 import { paintDuckBill, paintWeb } from './parts/duck.js';
 import { extraRows, paintOwl, shineOf } from './parts/owl.js';
 
@@ -220,6 +220,8 @@ export function paintBird(sheet, look) {
   for (const [name, under] of [['wingUp', false], ['wingUnder', true]]) {
     cell(CELLS[name], (w, h) => {
       ctx.clearRect(-2, -2, w + 4, h + 4);
+      // (a soaring raptor's wing, a plank with slotted primaries, for a sheet that asks: life/parts/raptorPaint.js)
+      if (W.spread.fingers) { paintRaptorWing({ ctx, w, h, under, sheet, look }); return; }
       const S = W.spread, armShare = shape.wing.arm / (shape.wing.span / 2 - shape.wing.shoulder[2]);
       const flight = under ? { web: W.under, edge: null, blunt: 0.3 } : { web: W.web, edge: W.edge, blunt: 0.3 };
       const wx = armShare * w, wy = h * 0.16;                                   // the wrist, where the primaries are rooted
@@ -314,6 +316,10 @@ export function paintBird(sheet, look) {
     fill(w, h, P.shin);
     for (let i = 0; i < 40; i += 1) { const x = r() * w, y = r() * h * 0.85; feather(x, y, x + (r() - 0.5) * 6, y + h * 0.2, w * 0.1, { colour: P.shin }); }
   });
+
+  // (an eagle's face, its trousers and its fish, over the paint that is there and with random numbers of their own, for
+  // a sheet that asks: life/parts/raptorPaint.js)
+  if (P.face || P.trousers || P.prey || P.eye.rim || P.eye.small) paintRaptorLate({ ctx, cell, cells: CELLS, sheet, body, look, edge: SKIN_EDGE });
 
   // an owl's face, its lids and its own eye, and where its pupils are for the eye's shine (life/parts/owl.js)
   const pupils = paintOwl(sheet, { ctx, ACROSS, DOWN, body, look });

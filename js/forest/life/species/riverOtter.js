@@ -32,16 +32,22 @@ export const published = {
 };
 
 // The coat, as paint: [hue, saturation, lightness]. Darker than the names read, as a wet otter's is.
-const DARK = [24, 30, 13], BACK = [22, 30, 10], UNDER = [27, 16, 26], GREY = [30, 8, 42], NOSE = [18, 8, 8];
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const DARK = [22, 38, 9.5], UNDER = [27, 20, 25], SILVER = [34, 12, 60], PADS = [28, 14, 36], NOSE = [18, 8, 8], FEET = [22, 26, 9];
+// a field's edge: 0 where `x` is under nothing, 1 where it is over, across `soft` either side of it
+const edge = (x, soft) => { const t = Math.min(1, Math.max(0, (x + soft) / (2 * soft))); return t * t * (3 - 2 * t); };
 
 export default {
   name: 'North American river otter', latin: 'Lontra canadensis', key: 'river-otter', seed: 471,
-  census: { tier: 'few', source: 'N C', party: [1, 3], clock: 'any' },
+  // (2026-11-19. The owner, 2026-11-18: "Uncommon and rare species just need to show up more... I'd rather have more
+  // animals present in their respective niches than an empty world." One party or two on every visit, at any hour, a
+  // mother with her young or a pair more often than one alone. `sure` adds a party from numbers of its own, so no
+  // other kind's draw moves.)
+  census: { tier: 'few', source: 'N C', party: [1, 3], clock: 'any', sure: [1, 2] },
   // how it lives on a visit (life/families/mustelid.js): paces (m/s: a walk, a bound, swimming), and how near it lets the
-  // walker come (m: it watches, it dives away, it goes); a mother and her young, or a pair, go about together. Under
-  // the water it is out of sight, above the river's bed: never under the ground (`under`). The agent's numbers.
-  way: { family: 'mustelid', manner: 'otter', there: 0.6, gap: [60, 240], together: true, pace: [0.55, 3.2, 0.8], wary: [28, 14, 7], fastest: 4.5, under: 0.05 },
+  // walker come (m, as one at a stroll: it watches, it slips into the water, it goes; 2026-11-19, so that a walker on
+  // the trail a dozen metres off may watch it); a mother and her young, or a pair, go about together. Under the water
+  // it is out of sight, above the river's bed: never under the ground (`under`). The agent's numbers.
+  way: { family: 'mustelid', manner: 'otter', there: 0.6, gap: [60, 240], together: true, pace: [0.55, 3.2, 0.8], wary: [20, 7, 3.5], fastest: 4.5, under: 0.05 },
   // (nothing heard of it was found that could be used: VOICES.js; the snort as well)
   voices: {
     chirp: { silent: true },   // the NPS Canyonlands clip is clicks 30 dB under its floor: too faint
@@ -51,77 +57,126 @@ export default {
   published,
   // how long it is, for what can be seen of it; how high its back stands, half its length and half its width (m)
   size: 0.95, body: { high: 0.27, long: 0.37, wide: 0.088 },
-  // The body, in metres, standing square: an adult male. Every number is the agent's but the head and body, the
-  // tail and the hind foot, which are set to the published averages above.
+  // One stride of a walk and of a bound, metres (life/beasts.js `stridesOf`; life/families/mustelid.js reads
+  // shape.long.strides, which are the same two): as they were.
+  strides: { walk: 0.3, trot: 0.72, gallop: 0.72 },
+  // The body, in metres, standing square: an adult male, drawn as a plate (life/plate.js says what each drawing is),
+  // the tail in the body's own outline: one skin from the tail's tip to the nose. Every number is the agent's but
+  // the head and body, the tail and the hind foot, which are set to the published averages above. Drawn from memory
+  // of otters and of field-guide plates of them (no photograph was looked at): long, low and round, the back
+  // highest over the haunches, the neck as thick as the head, the skull broad and flat with a blunt muzzle, the
+  // tail thick where it leaves the body and tapering evenly to its tip.
   shape: {
-    // the torso and the neck, rump to head: [top x, top y, bottom x, bottom y, half width, widest at, square]
-    trunk: [
-      [-0.312, 0.238, -0.314, 0.180, 0.036, 0.50, 2.0],     // the rump's end, round the tail's thick root
-      [-0.288, 0.256, -0.296, 0.150, 0.054, 0.50, 2.05],    // the body runs into the tail
-      [-0.245, 0.272, -0.258, 0.115, 0.072, 0.50, 2.15],    // the haunches: the back highest over them
-      [-0.170, 0.281, -0.170, 0.092, 0.084, 0.52, 2.3],
-      [-0.060, 0.272, -0.060, 0.082, 0.088, 0.52, 2.3],     // the belly, low between the legs
-      [0.030, 0.258, 0.035, 0.080, 0.088, 0.54, 2.3],
-      [0.100, 0.246, 0.110, 0.086, 0.082, 0.55, 2.25],      // the chest
-      [0.160, 0.236, 0.180, 0.100, 0.071, 0.55, 2.2],       // the shoulders
-      [0.215, 0.229, 0.240, 0.116, 0.060, 0.52, 2.1],       // the neck, nearly as thick as the head
-      [0.265, 0.227, 0.290, 0.132, 0.052, 0.50, 2.0],
-      [0.305, 0.229, 0.325, 0.148, 0.046, 0.50, 2.0],       // the throat
-      [0.330, 0.226, 0.345, 0.158, 0.040, 0.50, 2.0],       // inside the head
-    ],
-    withers: [0.04, 0.15],
-    spine: { hips: [-0.215, 0.20], chest: [0.02, 0.185], neck1: [0.16, 0.172], neck2: [0.215, 0.18], neck3: [0.27, 0.19] },
-    blend: [0.12, 0.05, 0.03, 0.03, 0.03],                   // (wide at the chest's joint, so that the back bends in one curve)
-    head: {
-      at: [0.322, 0.206], tilt: -6, square: 2.3, jaw: [0.035, -0.014],
-      //          s     up     down   half: a broad flat skull and a broad blunt muzzle
-      stations: [[-0.03, 0.034, 0.036, 0.040], [0, 0.038, 0.038, 0.046], [0.025, 0.037, 0.037, 0.048], [0.05, 0.033, 0.033, 0.045],
-        [0.072, 0.027, 0.028, 0.039], [0.09, 0.022, 0.024, 0.032], [0.104, 0.017, 0.019, 0.025], [0.113, 0.010, 0.012, 0.016]],
-      eye: { s: 0.05, up: 0.02, side: 0.033, r: 0.0055 },   // small, set high, to see over the water
+    gait: 'bound',
+    plate: {
+      side: {
+        //     t      x       y
+        top: [[0.0, -0.725, 0.026], [1.0, -0.660, 0.048], [2.0, -0.590, 0.078], [3.0, -0.520, 0.112],        // the tail, from its tip
+          [4.0, -0.450, 0.150], [5.0, -0.372, 0.196], [6.0, -0.290, 0.246],                                    // thickening to its root
+          [7.0, -0.232, 0.275], [8.0, -0.165, 0.285], [9.0, -0.060, 0.275], [10.0, 0.035, 0.262],              // the haunches, the highest of the back
+          [11.0, 0.105, 0.250], [12.0, 0.165, 0.242], [13.0, 0.220, 0.238], [14.0, 0.270, 0.238],              // the shoulders, the thick neck
+          [15.0, 0.305, 0.240], [16.0, 0.335, 0.240], [17.0, 0.365, 0.236], [18.0, 0.395, 0.224],              // the broad flat skull
+          [19.0, 0.420, 0.208], [19.6, 0.435, 0.196], [20.0, 0.444, 0.188]],                                   // the blunt muzzle
+        bottom: [[0.0, -0.725, 0.014], [1.0, -0.660, 0.018], [2.0, -0.590, 0.034], [3.0, -0.520, 0.058],
+          [4.0, -0.450, 0.088], [5.0, -0.376, 0.118], [6.0, -0.300, 0.140],
+          [7.0, -0.248, 0.110], [8.0, -0.170, 0.092], [9.0, -0.060, 0.082], [10.0, 0.035, 0.080],              // the belly, low between the legs
+          [11.0, 0.110, 0.086], [12.0, 0.180, 0.100], [13.0, 0.238, 0.118], [14.0, 0.285, 0.136],              // the chest, the throat
+          [15.0, 0.318, 0.150], [16.0, 0.345, 0.158], [17.0, 0.372, 0.160], [18.0, 0.398, 0.164],
+          [19.0, 0.420, 0.168], [19.6, 0.433, 0.172], [20.0, 0.441, 0.176]],                                   // the chin, the lips
+      },
+      //        t   half
+      above: [[0, 0.006], [1, 0.016], [2, 0.024], [3, 0.031], [4, 0.037], [5, 0.045], [6, 0.058], [7, 0.074], [8, 0.086], [9, 0.090],
+        [10, 0.089], [11, 0.083], [12, 0.072], [13, 0.060], [14, 0.053], [15, 0.048], [16, 0.049], [17, 0.050], [18, 0.046], [19, 0.037],
+        [19.6, 0.030], [20, 0.020]],
+      //        t  wide  over under
+      front: [[0, 0.5, 2.0, 2.0], [5, 0.5, 2.0, 2.0], [7, 0.5, 2.2, 2.2], [9, 0.5, 2.3, 2.3], [12, 0.52, 2.2, 2.2], [15, 0.5, 2.3, 2.1],
+        [17, 0.55, 2.7, 2.1], [19, 0.52, 2.5, 2.2], [20, 0.5, 2.3, 2.2]],
+      spine: [['tail6', -0.660, 0.033], ['tail5', -0.590, 0.056], ['tail4', -0.520, 0.085], ['tail3', -0.450, 0.119], ['tail2', -0.375, 0.156],
+        ['tail', -0.295, 0.195], ['hips', -0.215, 0.20], ['loin', -0.12, 0.20], ['back', -0.03, 0.19], ['chest', 0.06, 0.185],
+        ['neck1', 0.16, 0.178], ['neck2', 0.215, 0.183], ['neck3', 0.265, 0.19], ['head', 0.31, 0.20]],
+      marks: { rump: 6, withers: [11.5, 12.5], poll: 15 },
+      jaw: { hinge: [0.345, 0.175], from: 17.2, soft: 1.5, lips: 0.42, open: 0.3 },
+      eye: { at: [0.392, 0.214], r: 0.0055 },                // small, set high, to see over the water
     },
-    ear: { s: 0.008, up: 0.03, side: 0.036, length: 0.017, width: 0.022, out: 75, open: 25 },
-    tail: { at: [-0.30, 0.209], length: 0.457, width: 0.074, depth: 0.056, hang: 76, taper: 0.16, bulge: 0.004 },
+    // the paw (the bear's, life/parts/paw.js): plantigrade, webbed, short claws (mm: the agent's)
+    paw: { kind: 'plantigrade', claw: 9, hind: 8, curve: 0.8 },
     fore: {
-      at: [0.115, 0.055], scapula: [0.13, 0.21], scapSwing: 1.2, scapMost: 0.3, bones: [0.072, 0.062, 0.014], angles: [38, -12, 0], pastern: [0, 0.016],
+      at: [0.12, 0.058],
+      //        the blade's top        the point of the shoulder  the elbow             the wrist              over the pad
+      joints: [[0.12, 0.215, 0.045], [0.165, 0.150, 0.062], [0.110, 0.100, 0.066], [0.118, 0.036, 0.058], [0.120, 0.018, 0.058]],
+      //          y      front   back    out    in
+      outline: [[0.215, 0.165, 0.085, 0.045, 0.020], [0.180, 0.180, 0.075, 0.070, 0.022], [0.150, 0.185, 0.078, 0.082, 0.026],
+        [0.120, 0.165, 0.085, 0.086, 0.030], [0.095, 0.148, 0.090, 0.084, 0.034], [0.070, 0.138, 0.096, 0.078, 0.038],
+        [0.045, 0.133, 0.100, 0.074, 0.042], [0.030, 0.132, 0.104, 0.072, 0.044], [0.018, 0.134, 0.104, 0.072, 0.044]],
       foot: { long: 0.07, wide: 0.05 }, web: 0.6,
-      //       d     front  across ahead
-      girth: [[0, 0.03, 0.024, 0], [0.04, 0.026, 0.021, 0], [0.072, 0.019, 0.016, 0], [0.11, 0.014, 0.012, 0], [0.134, 0.012, 0.011, 0], [0.148, 0.012, 0.011, 0]],
-      share: { at: [0.10, 0.11], reach: [0.06, 0.05], most: 0.5 },
     },
     hind: {
-      at: [-0.20, 0.05], bones: [0.088, 0.092, 0.02], angles: [-35, 42, 0], pastern: [0, 0.018],
+      at: [-0.22, 0.06],
+      //        the hip                 the knee                the ankle               over the pad
+      joints: [[-0.215, 0.200, 0.050], [-0.165, 0.120, 0.070], [-0.225, 0.040, 0.060], [-0.220, 0.018, 0.060]],
+      outline: [[0.235, -0.160, -0.260, 0.050, 0.020], [0.200, -0.135, -0.275, 0.080, 0.022], [0.165, -0.125, -0.280, 0.092, 0.026],
+        [0.130, -0.130, -0.275, 0.094, 0.030], [0.100, -0.150, -0.265, 0.090, 0.034], [0.070, -0.175, -0.255, 0.084, 0.040],
+        [0.045, -0.190, -0.250, 0.080, 0.044], [0.030, -0.195, -0.248, 0.078, 0.046], [0.018, -0.195, -0.248, 0.078, 0.046]],
       foot: { long: 0.119, wide: 0.066 }, web: 0.85,
-      girth: [[0, 0.04, 0.032, 0], [0.05, 0.034, 0.026, 0.004], [0.088, 0.022, 0.018, 0], [0.13, 0.017, 0.014, -0.004], [0.18, 0.014, 0.012, 0], [0.2, 0.014, 0.012, 0]],
-      share: { at: [-0.2, 0.13], reach: [0.08, 0.07], most: 0.6 },
     },
-    // the paw (the bear's, life/parts/paw.js): plantigrade, short claws (mm: the agent's)
-    paw: { kind: 'plantigrade', claw: 9, hind: 8, curve: 0.8 },
-    unit: 0.2,                                               // (the builder's small sizes, a fifth of the elk's: life/beast.js)
-    // how it bounds and swims (life/parts/longRig.js); every number the agent's
-    long: { strides: { walk: 0.3, bound: 0.72 }, lift: { walk: 0.22, bound: 0.42 }, arch: 0.42, bob: 0.035, tailUp: 45, dip: 0.03 },
+    ear: { at: [0.335, 0.226], length: 0.017, width: 0.022, out: 70, open: 25, round: 1 },
+    // how it bounds (life/families/mustelid.js reads the strides; the rest is the old rig's, kept for its record)
+    long: { strides: { walk: 0.3, bound: 0.72 } },
+    arch: 0.42, tailUp: 45,
     neck: { low: [-0.3, -0.25, -0.15, 0.25], high: [0.35, 0.2, 0.1, -0.2], dip: -0.04 },
-    lie: { drop: 0.072, fore: { top: [0.03, 0.03], fetlock: [0.08, 0.015], out: 1.2, hoof: 0 }, hind: { top: [-0.03, 0.03], fetlock: [-0.09, 0.015], out: 1.3, hoof: 0 } },
+    lie: { drop: 0.07, fore: { top: [0.03, 0.03], fetlock: [0.08, 0.015], out: 1.2, hoof: 0 }, hind: { top: [-0.03, 0.03], fetlock: [-0.09, 0.015], out: 1.3, hoof: 0 } },
+    young: { legs: 0, head: 0.15, neck: 0 },
   },
+  // The coat, as paint (life/plateCoat.js says what each table is): rich glossy dark brown above, paler below and
+  // tinged with grey, greyish on the lips, the cheeks and the throat (T). Every shade and every boundary is the agent's.
   coat: {
-    body: [
-      { colour: DARK },                                                                    // rich glossy dark brown above (T)
-      { colour: BACK, where: (p) => smooth(0.78, 0.97, p.a) },
-      { colour: UNDER, where: (p) => smooth(0.36, 0.16, p.a) },                            // paler below, tinged with grey (T)
-      { colour: GREY, where: (p) => smooth(0.42, 0.2, p.a) * smooth(0.18, 0.28, p.x) },    // the throat, greyish (as the cheeks: T)
-    ],
-    head: [
+    rules: [
       { colour: DARK },
-      { colour: GREY, where: (p) => smooth(0.5, 0.25, p.a) * smooth(0.0, 0.04, p.s) * smooth(0.112, 0.098, p.s) },     // greyish on the lips and cheeks (T)
-      { colour: [26, 14, 36], where: (p) => smooth(0.085, 0.1, p.s) * smooth(0.3, 0.6, p.a) },   // the whisker pads, the muzzle's top
-      { colour: NOSE, where: (p) => smooth(0.104, 0.11, p.s) * smooth(-0.004, 0.004, p.up) },
+      { colour: UNDER, where: (p) => (p.part === 'body' ? edge(0.30 - p.a, 0.06) * edge(p.t - 6.5, 0.6) : 0) },                         // paler below (T)
+      { colour: SILVER, where: (p) => (p.part === 'body' ? edge(0.42 - p.a, 0.05) * edge(p.t - 12.4, 0.5) : 0) },                       // the throat and the chest
+      { colour: SILVER, where: (p) => (p.part === 'body' ? edge(0.58 - p.a, 0.05) * edge(p.t - 16.3, 0.4) * edge(19.3 - p.t, 0.2) : 0) }, // the cheeks and the lips
+      { colour: PADS, where: (p) => (p.part === 'body' ? edge(p.t - 18.7, 0.2) * edge(p.a - 0.5, 0.08) * edge(0.86 - p.a, 0.05) : 0) }, // the whisker pads
+      { colour: NOSE, where: (p) => (p.part === 'body' ? edge(p.t - 19.62, 0.05) * edge(p.a - 0.45, 0.08) : 0) },
+      { colour: FEET, where: (p) => (p.part === 'limb' ? edge(0.05 - p.y, 0.012) : 0) },
     ],
-    leg: ({ pastern }) => (pastern ? [22, 26, 12] : [23, 28, 14]),
+    planes: [],
+    tones: { light: [5, -6, 6], shade: [-2, 2, -3] },         // sleek: where it turns to the sky it shines
+    turn: { top: 1, under: 0.6 },
+    hair: { count: 0.12, long: 0.012 },
     claw: [28, 12, 26], pad: [20, 10, 16],
-    ear: { outer: [24, 26, 15], inner: [26, 14, 24], edge: [26, 12, 32] },
-    tail: { top: [23, 30, 14], under: [26, 22, 22] },
+    ear: { outer: [24, 26, 13], inner: [26, 14, 22], edge: [26, 12, 30] },
     eye: { iris: [24, 40, 8], pupil: [240, 10, 3] },
-    hair: { long: () => false },
   },
+  // Who an otter may be (life/plateRig.js; its family sets these once), and the poses the contact sheet shows
+  // (life/plateStudio.js), each the fields of a pose a family may ask for.
+  who: { male: {}, female: { scale: 0.92 }, pup: { scale: 0.6 } },
+  poses: {
+    alert: { neck: 1, ears: 1 },
+    walk: { walk: 1, cycle: 0.1 },
+    bound: { gallop: 1, cycle: 0.05 },
+    stretch: { gallop: 1, cycle: 0.55 },
+    upright: { rear: 1, neck: 0.8 },
+    lie: { lie: 1, neck: 0.5 },
+    eat: { sit: 1, hold: 1, neck: 0.45, jaw: 0.5 },
+    swim: { swim: 1, cycle: 0.2, neck: 0.75 },
+    dive: { swim: 1, dive: 1, cycle: 0.2 },
+    porpoise: { swim: 1, porpoise: 1, cycle: 0.22 },
+    slide: { slide: 1, neck: 0.7 },
+    back: { swim: 1, roll: 3.14159, hold: 1, neck: 0.9, jaw: 0.3 },
+    roll: { roll: 2.6, beat: 0.4, neck: 0.7 },
+    dig: { dig: 1, rake: 0.5, reach: 0.06, neck: 0.3 },
+    scratch: { scratch: 1, beat: 0.1 },
+    shake: { shake: 1, beat: 0.05 },
+    look: { neck: 0.9, head: { yaw: 1.0 } },
+  },
+  studio: { high: 0.45, tall: 0.34, middle: -0.14,
+    rows: [
+      { span: 1.35, high: 0.42, cells: [['male', 'male', null, 'side'], ['front', 'male', null, 'front'], ['behind', 'male', null, 'behind'], ['three-quarters', 'male', null, 'quarter']] },
+      { span: 1.35, high: 0.50, cells: [['from above', 'male', null, 'above'], ['walk', 'male', 'walk', 'side'], ['bounding, gathered', 'male', 'bound', 'side'], ['bounding, stretched', 'male', 'stretch', 'side']] },
+      { span: 1.35, high: 0.76, cells: [['standing up to look', 'male', 'upright', 'side'], ['eating, held in its paws', 'male', 'eat', 'quarter'], ['digging', 'male', 'dig', 'side'], ['pup', 'pup', 'look', 'side']] },
+      { span: 1.35, high: 0.46, cells: [['lying', 'male', 'lie', 'side'], ['sliding on its belly', 'male', 'slide', 'side'], ['shaking', 'male', 'shake', 'quarter'], ['rolling', 'male', 'roll', 'quarter']] },
+      { span: 1.35, high: 0.60, cells: [['swimming', 'male', 'swim', 'side'], ['diving', 'male', 'dive', 'side'], ['porpoising', 'male', 'porpoise', 'side'], ['on its back, eating', 'male', 'back', 'side']] },
+    ] },
   card: {
     size: 'About 1.1 to 1.2 m from nose to tail tip, the tail more than a third of it; 6 to 7 kg, a big male more.',
     marks: ['A long, low, glossy dark brown body, paler and greyish below', 'A broad flat head with small ears and a blunt, whiskered muzzle', 'A thick tail that tapers to a point, and webbed feet', 'In the water only its head and the line of its back show; it dives with a roll and comes up somewhere else'],

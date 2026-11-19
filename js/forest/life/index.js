@@ -4,6 +4,7 @@ import { bind } from './families/index.js';
 import { feelWalker } from './behave.js';
 import { census } from './census.js';
 import { planOf } from './plans.js';
+import { deferCutouts } from '../paint/brush.js';
 import { bodyOf, middleOf } from './bodies.js';
 import { CEILINGS } from '../budget.js';
 import { createAnimalMaterial } from './material.js';
@@ -80,14 +81,15 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
   // (the other of a pair, by its kind's key: a sheet is one plumage, and a sheet with a `mate` is two, life/bodies.js)
   const mates = {};
   // (the animals' share of the view, worked out every frame: `allot`, below; `levels`, each kind's triangles at its three levels)
-  const share = { calls: Infinity, solid: Infinity, others: { calls: 0, solid: 0 }, own: 0, passes: 0, cap: null, ceiling: null, guard: true, jumped: false, kinds: 0, used: { calls: 0, solid: 0 }, left: [], coarser: [], split: [], levels: {} };
+  const share = { settled: 0, calls: Infinity, solid: Infinity, others: { calls: 0, solid: 0 }, own: 0, passes: 0, cap: null, ceiling: null, guard: true, jumped: false, kinds: 0, used: { calls: 0, solid: 0 }, left: [], coarser: [], split: [], levels: {} };
   for (const [key, sheet] of Object.entries(SPECIES)) {
     const plan = planOf(sheet);
     if (plan.undrawn || !population.has(key) || !LIVES[key]) continue;            // (nor one that has no way of living yet)
     const capacity = Math.max(1, Math.min(48, population.get(key)));
     const kind = plan.build(sheet);
     yield `life: ${key} built`;
-    const painted = plan.paint(sheet, look, kind);
+    // (painted now; its sheet's mip chain, which is most of the time a sheet takes, a level at a time below)
+    const { made: painted, steps: chain } = deferCutouts(() => plan.paint(sheet, look, kind));
     // every animal of a kind is drawn together, a draw call to each detail level in use (life/flock.js)
     const flock = createFlock(kind, (bones) => createAnimalMaterial(U, painted.texture, { msaa: settings.msaa, bones }), capacity, { bones: plan.bones, puppet: plan.puppet });
     scene.add(...flock.meshes);
@@ -96,16 +98,18 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
     kinds[key] = { key, kind, sheet, texture: painted.texture, flock, framed: [], reach, whole: plan.whole || null, mode: 'together', least: 0, drawnLast: false };
     share.levels[key] = kind.triangles;
     yield `life: ${key} painted`;
+    for (const levels of chain) for (const level of levels) yield `life: ${key} ${level}`;
     // The other of a pair (a harlequin's duck beside the drake): the same body in its own paint. So it has a flock of
     // its own, and wherever the kinds are counted it is one more (`allot`: a draw call of its own for each level it is
     // drawn at). Which animal it is its family says (`bird.mate`), and poses it at its own size. Drawn in the one
     // flock, the duck was a small drake.
     if (sheet.mate) {
-      const other = plan.paint({ ...sheet, plumage: sheet.mate.plumage }, look, kind);
+      const { made: other, steps: its } = deferCutouts(() => plan.paint({ ...sheet, plumage: sheet.mate.plumage }, look, kind));
       const pair = createFlock(kind, (bones) => createAnimalMaterial(U, other.texture, { msaa: settings.msaa, bones }), capacity, { bones: plan.bones, puppet: plan.puppet });
       scene.add(...pair.meshes);
       mates[key] = { ...kinds[key], key: `${key}, ${sheet.mate.shown}`, texture: other.texture, flock: pair, framed: [], mate: true };
       yield `life: ${key}, the ${sheet.mate.shown}, painted`;
+      for (const levels of its) for (const level of levels) yield `life: ${key}, the ${sheet.mate.shown}, ${level}`;
     }
   }
   // (every flock there is, for whatever is done to each of them every frame; and which of them an animal is drawn in)
@@ -253,16 +257,22 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
     // a drag is the walker turning to look elsewhere
     if (focus && pointer.down && Math.hypot(e.clientX - pointer.down.x, e.clientY - pointer.down.y) > 5) release();
   };
-  const onDown = (e) => { point(e); pointer.down = { x: e.clientX, y: e.clientY }; };
+  // (`taken`: whether the pointer was the view's own when the press began, nav/trailController.js. The pointer is then
+  // the middle of the view, where the thin circle is; the press that takes it is still a click where the arrow was)
+  const onDown = (e) => { point(e); pointer.down = { x: e.clientX, y: e.clientY, taken: nav.state.locked }; };
   const onUp = (e) => {
     // a click is a press let go where it was made; a drag turns the walker's head, as before
     const d = pointer.down; pointer.down = null;
     point(e);
     if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) return;
-    const hit = pick(pointer.x, pointer.y);
+    const hit = d.taken ? pick(element.clientWidth / 2, element.clientHeight / 2) : pick(pointer.x, pointer.y);
     if (hit && hit !== focus) hold(hit); else if (!hit) release();
   };
   const onKey = (e) => { if (e.key === 'Escape') release(); };
+  // (Escape with the pointer taken never reaches the page as a key: the browser gives the pointer back, and that is
+  // the visitor looking away)
+  const onLock = () => { if (document.pointerLockElement !== element) release(); };
+  document.addEventListener('pointerlockchange', onLock);
   const onLeave = () => { pointer.x = pointer.y = -1; pointer.down = null; };      // (a press let go outside the page is over: left set, no animal was hovered until the next press)
   element.addEventListener('pointermove', onMove);
   element.addEventListener('pointerdown', onDown);
@@ -287,6 +297,27 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
   const middle = (bird, out) => {
     const [ahead, up] = middleOf(bird);
     return out.copy(bird.at).addScaledVector(_ahead.set(1, 0, 0).applyQuaternion(bird.q), ahead).addScaledVector(_upward.set(0, 1, 0).applyQuaternion(bird.q), up);
+  };
+  // Who the visit steps every frame (life/visit.js `step`): an animal held; one within the distance at which its kind
+  // heeds a walker (its way's `heed`; else, for a bird that flushes, well outside its flush and startle distances;
+  // else 90 m, for the beasts and whatever takes the walker its own way); and one near enough to be drawn (and a
+  // little more) that is in the frame or beside it, by a wider edge than the frame's own test. The rest live on at a
+  // slower step until one of those holds. `life.sparing = false` steps everyone every frame, as before 2026-11-19.
+  let sparing = true;
+  const watch = { zoom: 1, focal: 1 };
+  const heedOf = (bird) => {
+    if (bird.heed) return bird.heed;
+    const way = WAYS[bird.key] || {};
+    return (bird.heed = way.heed || (way.flush ? Math.max(1.9 * way.flush + 2, way.startle || 0, 25) : 90));
+  };
+  const watched = (bird) => {
+    const d = bird.at.distanceTo(camera.position);
+    if (d < heedOf(bird)) return true;
+    const entry = entryOf(bird);
+    if (!entry || !entry.flock || (d * watch.zoom) / settings.lodScale >= entry.reach[2] * bird.size * 1.15) return false;
+    middle(bird, _w).project(camera);
+    const edge = 1.6 + (bird.size / Math.max(d, 0.05)) * (watch.focal / ((element.clientHeight || 1) / 2));
+    return _w.z < 1 && _w.z > -1 && Math.abs(_w.x) < edge && Math.abs(_w.y) < edge;
   };
   // ---- the close-up's view, while there is any of it (`held`, `turning`): where it aims, how narrow it is, what is
   // cleared before it and softened round it. It is set before the animals move, since what they do goes by what the
@@ -413,26 +444,35 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
     // everyone's life goes on by a step: a frame that takes no time changes nothing (the pop check draws two and
     // wants them the same to the last pixel)
     if (step > 0) {
-      if (visit) visit.step(step, { camera, focal, day, sunHeight: cfg.elevationDeg, ...controls });
+      if (visit) { watch.zoom = zoom; watch.focal = focal; visit.step(step, { camera, focal, day, sunHeight: cfg.elevationDeg, ...controls, watched: sparing ? watched : null }); }
       else for (const bird of birds) { bird.snap = false; bird.act(step); }
       if (focus) closeUp(0);                       // (the animal held has moved: the view, to where it is now)
     }
     // ---- each animal: which level its distance draws it at, whether any of it is in the frame, where it is on the page
     for (const bird of birds) {
-      const entry = entryOf(bird), d = bird.at.distanceTo(camera.position), seen = (d * zoom) / settings.lodScale;
-      const level = cast ? (seen < NEAR ? 0 : seen < MID ? 1 : seen < FAR ? 2 : -1)
-        : seen < entry.reach[0] * bird.size ? 0 : seen < entry.reach[1] * bird.size ? 1 : seen < entry.reach[2] * bird.size ? 2 : -1;
+      const entry = entryOf(bird);
+      let d = 0, level = -1;
+      for (let again = 0; ; again += 1) {
+        d = bird.at.distanceTo(camera.position);
+        const seen = (d * zoom) / settings.lodScale;
+        level = cast ? (seen < NEAR ? 0 : seen < MID ? 1 : seen < FAR ? 2 : -1)
+          : seen < entry.reach[0] * bird.size ? 0 : seen < entry.reach[1] * bird.size ? 1 : seen < entry.reach[2] * bird.size ? 2 : -1;
+        // where its middle is on the page, for the pointer: never a smaller target than 18 pixels round
+        middle(bird, _v).project(camera);
+        // it is drawn if any of it could be in the frame: its middle within a sixth of a frame of the frame's edge,
+        // and as much further as the animal is long there
+        const edge = 1.35 + (bird.size / Math.max(d, 0.05)) * (focal / (height / 2));
+        // (nor is one its family hides, `hide`: a frog under the water or under cover. It is not drawn, and it is not
+        // counted among what is: counted, a kind that was all under water took a call from a kind that could be seen)
+        bird.framed = level >= 0 && !bird.hide && !!entry.flock && _v.z < 1 && _v.z > -1 && Math.abs(_v.x) < edge && Math.abs(_v.y) < edge;
+        // (one that nobody was watching, in the frame all the same, with time it has not lived: it lives it now, and
+        // is placed again. Rare: the watch is wider than the frame. `life.drawing.settled` counts them.)
+        if (again || !(bird.framed && bird.owed > 0 && visit && step > 0)) break;
+        visit.settle(bird); share.settled += 1;
+      }
       bird.shown = level;
       // a bird too far off to be drawn still lives its life, but how it holds itself is left as it was
       if (level >= 0) ease(bird.pose, bird.want, Math.min(1, step * 14), bird.snap, entry.whole);
-      // where its middle is on the page, for the pointer: never a smaller target than 18 pixels round
-      middle(bird, _v).project(camera);
-      // it is drawn if any of it could be in the frame: its middle within a sixth of a frame of the frame's edge,
-      // and as much further as the animal is long there
-      const edge = 1.35 + (bird.size / Math.max(d, 0.05)) * (focal / (height / 2));
-      // (nor is one its family hides, `hide`: a frog under the water or under cover. It is not drawn, and it is not
-      // counted among what is: counted, a kind that was all under water took a call from a kind that could be seen)
-      bird.framed = level >= 0 && !bird.hide && !!entry.flock && _v.z < 1 && _v.z > -1 && Math.abs(_v.x) < edge && Math.abs(_v.y) < edge;
       if (bird.framed && !cast) entry.framed.push(bird);
       const s = bird.screen;
       s.x = (_v.x * 0.5 + 0.5) * width; s.y = (-_v.y * 0.5 + 0.5) * height; s.d = d;
@@ -465,6 +505,8 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
     let own = shaded > 0 ? 1 : 0;
     for (const { flock } of entries) if (flock) for (const mesh of flock.meshes) if (mesh.visible) own += 1;
     share.own = own;
+    if (nav.state.locked) { pointer.x = width / 2; pointer.y = height / 2; }
+    nav.state.held = !!focus;
     hover = pointer.x >= 0 && !pointer.down ? pick(pointer.x, pointer.y) : null;
     card.ring(hover && hover !== focus ? hover.screen : null);
     element.style.cursor = hover ? 'pointer' : '';
@@ -648,7 +690,7 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
   function dispose() {
     element.removeEventListener('pointermove', onMove); element.removeEventListener('pointerdown', onDown);
     element.removeEventListener('pointerup', onUp); element.removeEventListener('pointerleave', onLeave);
-    window.removeEventListener('keydown', onKey);
+    window.removeEventListener('keydown', onKey); document.removeEventListener('pointerlockchange', onLock);
     card.dispose();
     scene.remove(shades); shades.geometry.dispose(); shades.material.dispose(); shades.dispose();
     // (the other of a pair has its kind's own body: that is let go once, with the kind)
@@ -674,10 +716,14 @@ export function* growLife({ scene, camera, nav, U, look, settings, terrain, trai
     // of the frame drew (`others`), what they used (`used`), the kinds in the frame, those left out of it, drawn
     // coarser or at their own levels; `cap`, which a tool may set, is a lower ceiling on their calls
     drawing: share,
+    // (whether animals nobody watches are stepped at a slower pace: `watched`, above. A tool may turn it off.)
+    get sparing() { return sparing; }, set sparing(on) { sparing = !!on; },
     // the kinds that are here now: the cast's two, or whoever of a visit's is there at the moment
     get about() { return [...new Set(birds.map((b) => b.key))]; },
     names: Object.fromEntries(Object.entries(SPECIES).map(([key, sheet]) => [key, sheet.name])),
     // the visit: its seed, and who is about on it (null for the cast)
     visit: visit ? { seed, busy, summary: visit.summary, who: visit.who, voices: visit.voices, get broken() { return visit.broken; } } : null,
-    focus: (i) => { if (birds[i]) hold(birds[i]); }, get focused() { return focus ? birds.indexOf(focus) : -1; }, get held() { return held; } };
+    focus: (i) => { if (birds[i]) hold(birds[i]); }, get focused() { return focus ? birds.indexOf(focus) : -1; }, get held() { return held; },
+    // (whether the pointer, or the middle of the view while the pointer is taken, is on an animal: js/forest/hud.js)
+    get hovering() { return !!hover; } };
 }

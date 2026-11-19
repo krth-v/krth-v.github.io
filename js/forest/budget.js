@@ -70,21 +70,90 @@ export function createGpuTimer(gl) {
   };
 }
 
-// Holds 60 fps by trimming render scale. A frame that takes more than about one
-// and a half refresh intervals counts as missed. Several misses in a short
-// window step the scale down; a long clean run lets it creep back up.
+// Holds 60 fps by trimming render scale, and gives the scale back. A frame is late when its interval is more than
+// one and a half of the display's own (learned: the lower quartile of the last 120 intervals) and more than 25 ms.
+// Two runs of 45 frames in a row with six late frames in each step the scale down by a tenth.
+//
+// Until 2026-11-19 late meant "over 25 ms", whatever the display's pace; one such run of 45 was enough; and a step up
+// needed 600 frames in a row with none late. So a browser drawing 30 frames a second (a power-saving mode) had its
+// forest at 0.7 of its size within three seconds for no faster frame, and one late frame in 500 kept it there for
+// good: the softness the owner rejected, brought back unasked. Now:
+//   - the display's own pace is learned first, so a steady 30 Hz is not lateness, and one hitch is not an overload;
+//   - a step down is a trial: if the next 90 frames are no better than the frames that caused it, the least scale
+//     there is is tried for 90 more, and if that does not help either the smaller picture is no cure: the scale is
+//     given back whole, and no step down is tried for 30 s (then a minute, two, up to eight);
+//   - a step up of a twentieth comes when fewer than two of the last 600 frames were late. One that has to be
+//     undone goes back to where it was, and that scale is then tried again only after twice as long, four times,
+//     up to sixteen (160 s at 60 Hz), until it holds;
+//   - `excused` frames are not counted: the caller knows of a cost the scale cannot cure (the sun's map redrawn, a
+//     frame after the page was away).
 export function createGovernor({ minScale, onScale }) {
-  let scale = 1, misses = 0, clean = 0, window_ = 0;
+  let scale = 1, pace = 16.7, hold = 0, rest = 30000, counted = 0;
+  let window_ = 0, misses = 0, strikes = 0;    // the runs of 45 frames that can step it down
+  let trial = null;                            // after a step down: { frames, late, was (the share late before), from }
+  let since = 0, lateSince = 0;                // counted frames since the scale last changed, and the late ones among them
+  let raisedFrom = null;                       // the scale before the last change, if that change was a step up
+  let ceiling = null, wait = 1;                // a scale that proved too much, and how many runs of 600 frames a step up to it waits for
+  const recent = [];
+  const set = (next) => { scale = next; since = 0; lateSince = 0; window_ = 0; misses = 0; strikes = 0; onScale(scale); };
   return {
     get scale() { return scale; },
-    frame(dtMs) {
-      window_ += 1;
-      if (dtMs > 25) { misses += 1; clean = 0; } else clean += 1;
-      if (window_ >= 45) {
-        if (misses >= 6 && scale > minScale) { scale = Math.max(minScale, scale - 0.1); onScale(scale); clean = 0; }
-        misses = 0; window_ = 0;
+    get pace() { return pace; },
+    frame(dtMs, excused = false) {
+      if (excused || !(dtMs > 0)) return;
+      hold -= dtMs;
+      recent.push(dtMs);
+      if (recent.length > 120) recent.shift();
+      counted += 1;
+      if (counted % 30 === 0) pace = [...recent].sort((a, b) => a - b)[recent.length >> 2];
+      if (counted < 30) return;                // (the display's pace is not known yet)
+      const late = dtMs > Math.max(25, 1.5 * pace);
+      since += 1; if (late) lateSince += 1;
+      if (trial) {
+        trial.frames += 1; if (late) trial.late += 1;
+        if (trial.frames >= 90) {
+          const helped = trial.late / 90 < 0.75 * trial.was, { from, was } = trial;
+          trial = null;
+          // (a tenth less did not help: the least there is is tried once, and if that does not help either the
+          // picture is given back whole)
+          if (!helped && scale > minScale + 1e-6) { set(minScale); trial = { frames: 0, late: 0, was, from }; }
+          else if (!helped) { hold = rest; rest = Math.min(480000, rest * 2); set(from); }
+          else rest = 30000;
+        }
+        return;
       }
-      if (clean >= 600 && scale < 1) { scale = Math.min(1, scale + 0.05); onScale(scale); clean = 0; }
+      window_ += 1; if (late) misses += 1;
+      if (window_ >= 45) {
+        const was = misses / 45;
+        strikes = misses >= 6 ? strikes + 1 : 0;
+        window_ = 0; misses = 0;
+        if (raisedFrom != null && since <= 600 && strikes >= 1 && scale > minScale) {
+          // the step up was too much: back to where it was, and this scale is not tried again so soon
+          wait = ceiling != null && Math.abs(ceiling - scale) < 1e-6 ? Math.min(16, wait * 2) : 2;
+          ceiling = scale;
+          const back = raisedFrom; raisedFrom = null;
+          set(back);
+          return;
+        }
+        if (strikes >= 2 && scale > minScale && hold <= 0) {
+          const from = scale;
+          raisedFrom = null;
+          set(Math.max(minScale, scale - 0.1));
+          trial = { frames: 0, late: 0, was, from };
+          return;
+        }
+      }
+      if (scale < 1) {
+        const next = Math.min(1, scale + 0.05), runs = ceiling != null && next > ceiling - 1e-6 ? wait : 1;
+        if (since >= 600 * runs) {
+          if (lateSince < 2 * runs) {
+            // (the last step up, to a scale that had once been too much, has held: it is one no longer)
+            if (raisedFrom != null && ceiling != null && scale > ceiling - 1e-6) { ceiling = null; wait = 1; }
+            raisedFrom = scale;
+            set(next);
+          } else { since = 0; lateSince = 0; }
+        }
+      }
     },
   };
 }

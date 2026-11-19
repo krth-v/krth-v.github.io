@@ -265,5 +265,13 @@ export function createPost(renderer, U, opts) {
 
   resize();
   // (`grade`: the final pass's own uniforms, read by js/outside.js for the grade it puts back on the window's picture)
-  return { render, resize, setScale, setSoft, applyTime, applyLook, dispose, grade: finalMat.uniforms, get scale() { return scale; } };
+  // Every program a scene needs, made before the scene is first drawn and as it will be drawn (into the scene's own
+  // target, which is part of what a program is made for): three's compileAsync, whose promise this hands back.
+  function compile(scene, camera) {
+    const was = renderer.getRenderTarget();
+    renderer.setRenderTarget(sceneTarget);
+    try { return renderer.compileAsync(scene, camera); } finally { renderer.setRenderTarget(was); }
+  }
+
+  return { render, resize, setScale, setSoft, applyTime, applyLook, compile, dispose, grade: finalMat.uniforms, get scale() { return scale; } };
 }

@@ -8,9 +8,9 @@ import { KINDS } from '../life/species/index.js';
 // agent (2026-11-16), cut to one call or one song, band-limited to the bird's own voice, levelled, and encoded
 // again; nothing else was done to it. What was not found stays silent (SILENT).
 //
-// Work in progress: the recordings are in the git-ignored scratch store until the owner has accepted the
-// milestone. They are committed then, once, and BASE is changed to where they are put.
-export const BASE = '.local-assets/forest/sound/';
+// The recordings (31 files, 1.1 MB) are in the repository since 2026-11-19, once the owner had walked the forest
+// with them and published it: assets/forest/sound/. A page that serves the forest serves that folder beside it.
+export const BASE = 'assets/forest/sound/';
 
 // every voice of every kind, as `${kind}/${what it said}` (life/agents.js: world.say)
 const VOICES = KINDS.flatMap((kind) => Object.entries(kind.voices || {}).map(([what, voice]) => [`${kind.key}/${what}`, voice]));

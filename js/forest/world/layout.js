@@ -580,12 +580,14 @@ export function* buildLayoutSteps({ trail, oldTrail, terrain, seed = 1, density 
     trail.sample(place(area.s), position, tangent);
     return { ...area, x: position.x - tangent.z * area.side, z: position.z + tangent.x * area.side };
   }));
+  for (const area of zones) if (area.x === undefined) { area.fromAt = place(area.from); area.toAt = place(area.to); }
   const cleared = (kind, x, z) => {
+    let d = -1, s = 0;
     for (const area of zones) {
       if (!area.kinds.includes(kind)) continue;
       if (area.x !== undefined) { if (Math.hypot(x - area.x, z - area.z) < area.within) return true; continue; }
-      const [d, s] = trail.locate(x, z);
-      if (d < area.within && s >= place(area.from) && s <= place(area.to)) return true;
+      if (d < 0) [d, s] = trail.locate(x, z);
+      if (d < area.within && s >= area.fromAt && s <= area.toAt) return true;
     }
     return false;
   };

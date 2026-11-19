@@ -450,7 +450,8 @@ const WATER_FRAG = /* glsl */`
     #endif
     float band = smoothstep(uBand.x, uBand.y, dot(N, uSunDir));
     vec3 amb = mix(uGroundAmb, uSkyAmb, 0.9);
-    if (uOpen > 0.0) amb *= 1.0 + uOpen * uOpenSky * openSky(vWorld.xz) * vec3(0.94, 1.0, 1.14);
+    float overhead = openSky(vWorld.xz);
+    if (uOpen > 0.0) amb *= 1.0 + uOpen * uOpenSky * overhead * vec3(0.94, 1.0, 1.14);
     vec3 lit = albedo * (amb * uShadowTint + uSunColor * band * sun);
     if (uLamps > 0.0) lit += albedo * lampLight(N, vWorld, 0.0);
 
@@ -525,7 +526,7 @@ const WATER_FRAG = /* glsl */`
     float hides = max(smoothstep(0.0, uClear, depth), max(solid, 1.5 * white));
     float cover = clamp(mirror + (1.0 - mirror) * hides, 0.0, 1.0);
     vec3 own = (shown * mirror + lit * (1.0 - mirror) * clamp(hides, 0.0, 1.0)) / max(cover, 0.001);
-    own = mix(own, mix(uFogColor, uZenith, 0.3) * (0.75 + 0.5 * sun) * mix(0.4, 1.0, openSky(vWorld.xz)), 0.6 * crest) + uSunColor * (0.9 * glint);
+    own = mix(own, mix(uFogColor, uZenith, 0.3) * (0.75 + 0.5 * sun) * mix(0.4, 1.0, overhead), 0.6 * crest) + uSunColor * (0.9 * glint);
     cover = max(cover, max(glint, 0.6 * crest));
     // What shows through it is wet, and a wet stone is a darker stone: it takes away a share of the light that
     // comes up from its bed, without laying any paint over it. (Without that a creek over pale cobbles was the

@@ -82,6 +82,9 @@ import bigBrownBat from './bigBrownBat.js';
 //              wave    it comes with the migrants' wave: on a wave day there are more of it, and those the wave
 //                      brought go about as one party (life/wave.js)
 //              extra   not on the owner's list: read because it is part of such a valley, built only if asked for
+//              sure    [fewest, most] parties on every visit at an hour the kind is abroad, whatever the day's
+//                      draw: for the few kinds the owner wants met on most walks ("The bears need to be more
+//                      present"), where a mean high enough to make them sure would also make them a crowd
 //   way      how it lives on a visit (life/visit.js):
 //              family    the family whose life it lives (life/families/: ground, creeper, skulker, corvid, trunk,
 //                        bough, herd), and beside the rest of these the family's own numbers for this kind, which

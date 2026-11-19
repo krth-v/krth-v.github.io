@@ -58,17 +58,77 @@ export function bearPlaces(habitat) {
   return places;
 }
 
-// Where a bear's party lives on a visit: one place, chosen by what it is (the wet ground and the grass most, by
-// the agent's reading of what it eats in May), and every other place within seventy metres of it, nearest first,
-// which it goes from one to the next of. Not within 150 m of another bear's.
-const WEIGHT = { wet: 4, grass: 2.5, log: 2, stones: 1.5, stump: 1.2 };
-export function bearHome(habitat, r, taken = []) {
-  const all = bearPlaces(habitat);
-  const weight = (one) => (taken.some((home) => home && Math.hypot(home.x - one.x, home.z - one.z) < 150) ? 0 : WEIGHT[one.kind] || 0);
-  const sum = all.reduce((n, one) => n + weight(one), 0);
-  if (!(sum > 0)) return null;
-  let pick = r() * sum, at = all[0];
-  for (const one of all) { pick -= weight(one); if (pick <= 0) { at = one; break; } }
-  const near = all.filter((one) => Math.hypot(one.x - at.x, one.z - at.z) < 70).sort((m, n) => Math.hypot(m.x - at.x, m.z - at.z) - Math.hypot(n.x - at.x, n.z - at.z)).slice(0, 8);
-  return { x: at.x, z: at.z, kind: at.kind, places: near };
+// ---- Where a bear can be on a visit (2026-11-19), read once from the world as built (the first time a bear asks):
+// the places above (dead wood to tear at, the wet ground, the grass), and more of the same found beside the walk from
+// thirteen to thirty-five metres off it: grass, the wet ground, a bar's cobbles, and the floor of the hill under the
+// maples and the ravine's trees. Each is kept only if a walker can see it: `seen` is how many metres of the walk,
+// within 46 m of it, have a line to it that no trunk and no rise of the ground stops; `off` how far it is from the
+// walk, and `s` where along the walk that is. The owner, 2026-11-18: "The bears need to be more present, I have yet
+// to see a single bear." A place nobody on the walk can see into is no place for one. Near each place, the trunks
+// within twelve metres that a bear can rub its back on or climb (`trees`: the habitat's trunks, at least 0.2 m round
+// their axis at 1.5 m), read the same once.
+const RANGE = new WeakMap();
+const NEAR_WALK = 11, FAR = 46;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function spotsOf(habitat) {
+  let kept = RANGE.get(habitat);
+  if (kept) return kept;
+  const spots = [], n = Math.ceil(habitat.length), walk = new Float32Array(n * 3), p = new THREE.Vector3();
+  for (let s = 0; s < n; s += 1) { habitat.beside(s, 0, p); walk[s * 3] = p.x; walk[s * 3 + 1] = p.y; walk[s * 3 + 2] = p.z; }
+  const apart = (x, z, d) => spots.every((one) => (one.x - x) ** 2 + (one.z - z) ** 2 >= d * d);
+  for (const one of bearPlaces(habitat)) spots.push({ ...one });
+  for (let s = 0; s < n; s += 3) for (const side of [-1, 1]) for (const off of [13, 17, 22, 28, 35]) {
+    habitat.beside(s, side * off, p);
+    const kind = habitat.ground(p.x, p.z);
+    if (kind === 'floor') { const air = habitat.open(p.x, p.z); if (air < 0.2 || air > 0.6) continue; }
+    else if (kind !== 'grass' && kind !== 'wet' && kind !== 'stones') continue;
+    if (!habitat.walkable(p.x, p.z, 0.6) || !apart(p.x, p.z, kind === 'floor' ? 9 : 5.5)) continue;
+    spots.push({ kind, x: p.x, z: p.z });
+  }
+  kept = [];
+  const eye = new THREE.Vector3(), at = new THREE.Vector3(), list = [];
+  for (const one of spots) {
+    let off = Infinity, s0 = 0, seen = 0;
+    at.set(one.x, habitat.height(one.x, one.z) + 0.6, one.z);
+    for (let s = 0; s < n; s += 1) {
+      const d = Math.hypot(walk[s * 3] - one.x, walk[s * 3 + 2] - one.z);
+      if (d < off) { off = d; s0 = s; }
+      if (d > FAR || d < 8 || s % 2) continue;
+      eye.set(walk[s * 3], walk[s * 3 + 1] + 1.6, walk[s * 3 + 2]);
+      if (habitat.blocked(eye, at, 0.5)) continue;
+      let hid = false;
+      for (let k = 1; k < 6 && !hid; k += 1) { const t = k / 6; hid = habitat.height(eye.x + (at.x - eye.x) * t, eye.z + (at.z - eye.z) * t) > eye.y + (at.y - eye.y) * t + 0.15; }
+      if (!hid) seen += 2;
+    }
+    if (off < NEAR_WALK || seen < 10) continue;
+    one.off = off; one.s = s0; one.seen = seen;
+    one.trees = habitat.trunksNear(one.x, one.z, 12, list).filter((t) => t.girth >= 0.2 && t.top > 6);
+    kept.push(one);
+  }
+  kept.count = {};
+  for (const one of kept) kept.count[one.kind] = (kept.count[one.kind] || 0) + 1;
+  RANGE.set(habitat, kept);
+  return kept;
+}
+// Where a bear's party lives on a visit: one place, drawn so that each sort of ground has its share of the visits
+// whatever the number of its places (the agent's shares: the clearing's grass, a log or a stump beside the walk in
+// the deep wood, the riverside's bar and the wet ground among the skunk cabbage, the floor of the hill under the
+// maples, the least of them: a bear there is low in the ferns), the better seen the likelier; and the places within fifty metres of it that it can walk to, nearest
+// first, which it goes from one to the next of. Not within 110 m of another bear's. `all`: every place there is,
+// for where it goes when a walker moves it on.
+const SHARE = { grass: 0.3, stones: 0.2, wet: 0.16, log: 0.2, stump: 0.06, floor: 0.08 };
+export function bearRange(habitat, r, taken = []) {
+  const all = spotsOf(habitat), pick0 = r();
+  for (const apartBy of [110, 0]) {
+    const weight = (one) => (apartBy && taken.some((home) => home && Math.hypot(home.x - one.x, home.z - one.z) < apartBy) ? 0
+      : ((SHARE[one.kind] || 0) / all.count[one.kind]) * clamp(one.seen / 40, 0.4, 1.6) * (one.off < 14 ? 0.5 : 1));
+    const sum = all.reduce((total, one) => total + weight(one), 0);
+    if (!(sum > 0)) continue;
+    let pick = pick0 * sum, at = null;
+    for (const one of all) { const w = weight(one); if (w <= 0) continue; at = one; pick -= w; if (pick <= 0) break; }
+    const far = (one) => Math.hypot(one.x - at.x, one.z - at.z);
+    const near = all.filter((one) => one !== at && far(one) < 50 && habitat.crossable(at.x, at.z, one.x, one.z)).sort((m, n) => far(m) - far(n)).slice(0, 7);
+    return { x: at.x, z: at.z, kind: at.kind, places: [at, ...near], all };
+  }
+  return null;
 }

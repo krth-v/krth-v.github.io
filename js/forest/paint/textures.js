@@ -34,19 +34,23 @@ const BARK = {
 
 // Soften a wrapping height field in place (two passes of a box blur).
 function blurWrapped(field, w, h, radius) {
-  const tmp = new Float32Array(field.length), span = 2 * radius + 1;
+  // (the same sums in the same order as a read through `% w` and `% h` at every tap: the wrap is laid out once)
+  const tmp = new Float32Array(field.length), span = 2 * radius + 1, row = new Float32Array(w + 2 * radius), rows = new Int32Array(h + 2 * radius);
+  for (let y = -radius; y < h + radius; y += 1) rows[y + radius] = ((y + h) % h) * w;
   for (let pass = 0; pass < 2; pass += 1) {
     for (let y = 0; y < h; y += 1) {
+      const o = y * w;
+      for (let x = -radius; x < w + radius; x += 1) row[x + radius] = field[o + ((x + w) % w)];
       for (let x = 0; x < w; x += 1) {
         let sum = 0;
-        for (let k = -radius; k <= radius; k += 1) sum += field[y * w + ((x + k + w) % w)];
-        tmp[y * w + x] = sum / span;
+        for (let k = 0; k < span; k += 1) sum += row[x + k];
+        tmp[o + x] = sum / span;
       }
     }
     for (let y = 0; y < h; y += 1) {
       for (let x = 0; x < w; x += 1) {
         let sum = 0;
-        for (let k = -radius; k <= radius; k += 1) sum += tmp[((y + k + h) % h) * w + x];
+        for (let k = 0; k < span; k += 1) sum += tmp[rows[y + k] + x];
         field[y * w + x] = sum / span;
       }
     }
@@ -171,7 +175,6 @@ export function* boughAtlasSteps(kind, look, detail = 1) {
   const spec = BOUGH[kind], pal = look.palette[`${kind}Needle`], opts = { ragged: look.paint.ragged };
   ctx.lineCap = 'round';
   for (let cell = 0; cell < 8; cell += 1) {
-    if (cell) yield `cell ${cell}`;
     const r = rng(300 + cell * 17 + kind.length), ox = (cell % 2) * CW, oy = Math.floor(cell / 2) * CH;
     ctx.save();
     ctx.beginPath(); ctx.rect(ox, oy, CW, CH); ctx.clip();
@@ -249,7 +252,6 @@ export function* cedarAtlasSteps(look, detail = 1) {
   const pal = look.palette.cedarNeedle, opts = { ragged: look.paint.ragged };
   ctx.lineCap = 'round';
   for (let cell = 0; cell < 8; cell += 1) {
-    if (cell) yield `cell ${cell}`;
     const r = rng(900 + cell * 31), ox = (cell % 2) * CW, oy = Math.floor(cell / 2) * CH, PAD = 7;
     ctx.save();
     ctx.beginPath(); ctx.rect(ox, oy, CW, CH); ctx.clip();

@@ -7,6 +7,42 @@ import { terrace } from './land.js';
 // kept as it was, to the last bit, and the new trail is spliced onto it.
 const OLD = [[0, 0], [18, -22], [44, -30], [70, -18], [88, 6], [84, 36], [62, 56], [34, 60], [8, 48], [-10, 26]];
 
+// The nearest of the coarse samples to a spot, without a look at every one of them. The samples run along the
+// trail, so a dozen neighbours lie in a small circle: a group whose circle is further off than the nearest sample
+// found so far is passed over whole. It is the sample the scan of all of them finds: the same squared distance from
+// the same sum, and of equals the first.
+function nearestIn(coarse) {
+  const n = coarse.length / 2, G = 12, groups = Math.ceil(n / G), xz = new Float64Array(coarse);
+  const cx = new Float64Array(groups), cz = new Float64Array(groups), rad = new Float64Array(groups), dist = new Float64Array(groups);
+  for (let c = 0; c < groups; c += 1) {
+    const from = c * G, to = Math.min(n, from + G);
+    let sx = 0, sz = 0;
+    for (let i = from; i < to; i += 1) { sx += xz[i * 2]; sz += xz[i * 2 + 1]; }
+    cx[c] = sx / (to - from); cz[c] = sz / (to - from);
+    for (let i = from; i < to; i += 1) rad[c] = Math.max(rad[c], Math.hypot(xz[i * 2] - cx[c], xz[i * 2 + 1] - cz[c]));
+    rad[c] += 1e-6;                                  // (room for the rounding of the sums above)
+  }
+  const found = [0, 0];
+  return (x, z) => {
+    let first = 0, least = Infinity;
+    for (let c = 0; c < groups; c += 1) { const dx = cx[c] - x, dz = cz[c] - z, d = dx * dx + dz * dz; dist[c] = d; if (d < least) { least = d; first = c; } }
+    let best = Infinity, at = 0, reach = Infinity;
+    for (let turn = -1; turn < groups; turn += 1) {
+      const c = turn < 0 ? first : turn;
+      if (turn === first) continue;
+      // (passed over only if its centre is further off than the nearest found, its own radius and a little more)
+      if (turn >= 0) { const most = reach + rad[c]; if (dist[c] > most * most) continue; }
+      for (let i = c * G * 2, end = Math.min(n, c * G + G) * 2; i < end; i += 2) {
+        const dx = xz[i] - x, dz = xz[i + 1] - z, d = dx * dx + dz * dz;
+        if (d < best || (d === best && i < at)) { best = d; at = i; }
+      }
+      reach = Math.sqrt(best) + 1e-6;
+    }
+    found[0] = best; found[1] = at;
+    return found;
+  };
+}
+
 export function createOldTrail(heightAt) {
   const curve = new THREE.CatmullRomCurve3(OLD.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
   const N = 1200;
@@ -41,13 +77,9 @@ export function createOldTrail(heightAt) {
   // gives how far along the trail the nearest point is.
   const coarse = [];
   for (let i = 0; i < N; i += 3) coarse.push(points[i].x, points[i].z);
+  const nearest = nearestIn(coarse);
   function locate(x, z) {
-    let best = Infinity, at = 0;
-    for (let i = 0; i < coarse.length; i += 2) {
-      const dx = coarse[i] - x, dz = coarse[i + 1] - z;
-      const d = dx * dx + dz * dz;
-      if (d < best) { best = d; at = i; }
-    }
+    const [best, at] = nearest(x, z);
     return [Math.sqrt(best), ((at / 2) * 3 / N) * length];
   }
   const distance = (x, z) => locate(x, z)[0];
@@ -203,13 +235,9 @@ export function createTrail(terrain, old) {
 
   const coarse = [];
   for (let i = 0; i < N; i += 3) coarse.push(points[i].x, points[i].z);
+  const nearest = nearestIn(coarse);
   function locate(x, z) {
-    let best = Infinity, where = 0;
-    for (let i = 0; i < coarse.length; i += 2) {
-      const dx = coarse[i] - x, dz = coarse[i + 1] - z;
-      const d = dx * dx + dz * dz;
-      if (d < best) { best = d; where = i; }
-    }
+    const [best, where] = nearest(x, z);
     return [Math.sqrt(best), ((where / 2) * 3 / N) * length];
   }
   const distance = (x, z) => locate(x, z)[0];

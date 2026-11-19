@@ -91,28 +91,53 @@ export function dab(ctx, x, y, radius, colour, alpha = 1, squash = 1, angle = 0)
 // Turn a painted canvas into a texture whose smaller mip levels keep the same
 // share of opaque pixels. Without this, cut-out foliage thins out and vanishes
 // with distance (the "sparse, white crowns" failure recorded in CLAUDE.md).
-export function cutoutTexture(canvas, options) { return drainSteps(cutoutTextureSteps(canvas, options)); }
-export function* cutoutTextureSteps(canvas, { cutoff = 0.5, anisotropy = 2 } = {}) {
-  const coverage = (data) => {
-    let n = 0;
-    for (let i = 3; i < data.length; i += 4) if (data[i] >= cutoff * 255) n += 1;
-    return n / (data.length / 4);
-  };
-  // Give fully transparent pixels the average painted colour, so filtering at a
-  // cut-out's edge blends towards paint instead of towards black.
+export function cutoutTexture(canvas, options) {
+  if (!later) return drainSteps(cutoutTextureSteps(canvas, options));
+  // (asked for inside `deferCutouts`: the texture now, as a thing a material can be given, and its levels when the
+  // caller goes through the steps)
+  const texture = new THREE.CanvasTexture(canvas);
+  later.push(cutoutTextureSteps(canvas, options, texture));
+  return texture;
+}
+// A painter that ends by asking for its cut-out (every animal's does: plumage.js, coat.js, plateCoat.js, batPaint.js,
+// frogCoat.js) made one undivided step of 40 to 150 ms of the cabin's stepped build, where a frame has 6. Run inside
+// this, it paints as it always did and gets its texture at once, and the mip chain, which is most of the time, is
+// handed back as generators for the caller to go through a level at a time: `{ made, steps }`. A sheet is whole
+// before the next is painted as long as the caller goes through its steps first, so what is painted is the same
+// (a yield after a sheet's painting and between its levels changes no pixel; one in the middle of its painting does).
+let later = null;
+export function deferCutouts(paint) {
+  const before = later, steps = [];
+  later = steps;
+  try { return { made: paint(), steps }; } finally { later = before; }
+}
+export function* cutoutTextureSteps(canvas, { cutoff = 0.5, anisotropy = 2 } = {}, into = null) {
+  // One scan for both: how much of it is opaque, and the average painted colour, which fully transparent pixels
+  // are given so that filtering at a cut-out's edge blends towards paint instead of towards black.
+  const fill = new Uint8ClampedArray(4), word = new Uint32Array(fill.buffer), cut = cutoff * 255;
   const bleed = (data) => {
-    let r = 0, g = 0, b = 0, n = 0;
-    for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 128) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1; }
-    if (!n) return;
-    r /= n; g /= n; b /= n;
-    for (let i = 0; i < data.length; i += 4) {
-      const a = data[i + 3] / 255;
-      if (a < 0.2) { const k = a / 0.2; data[i] = data[i] * k + r * (1 - k); data[i + 1] = data[i + 1] * k + g * (1 - k); data[i + 2] = data[i + 2] * k + b * (1 - k); }
+    const px = new Uint32Array(data.buffer, data.byteOffset, data.length >> 2);      // a pixel is one word: red in its low byte, alpha in its high
+    let r = 0, g = 0, b = 0, n = 0, opaque = 0;
+    for (let i = 0; i < px.length; i += 1) {
+      const v = px[i], a = v >>> 24;
+      if (a >= cut) opaque += 1;
+      if (a > 128) { r += v & 255; g += (v >>> 8) & 255; b += (v >>> 16) & 255; n += 1; }
     }
+    const share = opaque / px.length;
+    if (!n) return share;
+    r /= n; g /= n; b /= n;
+    fill[0] = r; fill[1] = g; fill[2] = b; fill[3] = 0;
+    const clear = word[0];
+    for (let i = 0; i < px.length; i += 1) {
+      const top = px[i] >>> 24;
+      if (top === 0) { px[i] = clear; continue; }
+      const a = top / 255;
+      if (a < 0.2) { const o = i * 4, k = a / 0.2; data[o] = data[o] * k + r * (1 - k); data[o + 1] = data[o + 1] * k + g * (1 - k); data[o + 2] = data[o + 2] * k + b * (1 - k); }
+    }
+    return share;
   };
   const base = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-  const want = coverage(base.data);
-  bleed(base.data);
+  const want = bleed(base.data);
   yield 'mip 0';
   const mipmaps = [base];
   const alphaCounts = new Uint32Array(256);
@@ -140,7 +165,7 @@ export function* cutoutTextureSteps(canvas, { cutoff = 0.5, anisotropy = 2 } = {
     source = level;
     if (w >= 128) yield `mip ${w}`;
   }
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = into || new THREE.CanvasTexture(canvas);
   texture.mipmaps = mipmaps;
   texture.generateMipmaps = false;
   texture.minFilter = THREE.LinearMipmapLinearFilter;

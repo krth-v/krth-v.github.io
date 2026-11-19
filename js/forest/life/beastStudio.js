@@ -35,6 +35,7 @@ export const POSES = {
 };
 
 export async function showBeast(params, sheet) {
+  if (sheet.shape.plate) return import('./plateStudio.js').then((studio) => studio.showPlate(params, sheet));      // (a beast drawn as a plate: its own sheet)
   if (sheet.studio) return import('./parts/rodentStudio.js').then((studio) => studio.showRodent(params, sheet));      // (a small one that climbs)
   const look = getLook(params.get('look'));
   document.getElementById('hud').hidden = true;

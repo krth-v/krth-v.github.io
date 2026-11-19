@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DISPLAY_BONES, DISPLAY_PARENT, buildDisplay, fanBind } from './parts/display.js';
 import { Skin, curve } from './skin.js';
-import { hookedBill, talon } from './parts/raptor.js';
+import { hookedBill, talon, buildRaptorParts } from './parts/raptor.js';
 import { buildDuckBill, buildWebs } from './parts/duck.js';
 import { squeezeOf, buildDisc, buildTufts, feathering, lidPivot } from './parts/owl.js';
 
@@ -21,7 +21,16 @@ import { squeezeOf, buildDisc, buildTufts, feathering, lidPivot } from './parts/
 //                 span, shoulder: [x, y, z], arm, lead, sweep, root, tipChord }
 //                                         chord and span are published lengths. `up` and `down` are the folded
 //                                         wing's upper and lower edge, as [[share of the chord, mm], ...].
-//   shape.tail: { length, root: y, rootHalf, feathers, width, closed, graded, point, droop, tent }
+//                 camber, rise, twist: [lead, trail], dihedral
+//                                         the spread wing's form, each optional (see "spread wings", below): how far
+//                                         the middle of the chord arches over its edges (a share of `root`, 0.075);
+//                                         how far the wrist stands over the shoulder (a share of `arm`, 0.065); how
+//                                         far the tip hangs under the wrist at its leading edge, and how much further
+//                                         at its trailing edge (shares of `tipChord`, [0.22, 0.16]; below zero the
+//                                         tip turns up); and the whole wing's slope up from the shoulder (radians, 0)
+//                 joined                  true: the hand's first row of vertices is the arm's (a raptor's wing, which
+//                                         a pose sweeps back at the wrist: life/parts/raptor.js)
+//   shape.tail: { length, root: y, rootHalf, feathers, width, closed, graded, point, droop, tent }   (`sheer`: true for a tail the light comes through: below)
 //   shape.leg: { knee: [x, y, z], shin, tarsus, thick: [thigh, heel, tarsus], toes: { mid, side, hind, claw, hindClaw }, splay }
 //   shape.crest: { sunk, paint, lobes: [[x, length, lean, deep, wide, sweep], ...] }
 //                                         only for a bird that has one: blades of long feathers standing from the
@@ -163,7 +172,9 @@ export function buildBird(sheet, level = 0) {
   // A few overlapping contour feathers turn the smooth loft at the nape and throat.
   // They take the paint and neck weights of the skin directly underneath. Tuck the
   // quills into it and lift the rounded tips, keeping a waterbird's plumage sleeker.
-  if (level === 0) {
+  // (`shape.contour: 0`: none of them, for a sheet that says so. On the eagle, whose white hood ends where they
+  // lie, they stood out of its neck and breast as dark spikes.)
+  if (level === 0 && shape.contour !== 0) {
     const span = body.front - body.rear;
     const halfWidths = [0.025, 0.056, 0.014];
     const tufts = [[0.18, 0.80], [0.24, 0.89], [0.30, 0.82], [0.25, 0.25], [0.31, 0.18], [0.38, 0.27]];
@@ -272,6 +283,10 @@ export function buildBird(sheet, level = 0) {
     const [sx, sy, sz] = wing.shoulder, reach = wing.span / 2 - sz, armSpan = wing.arm, handSpan = reach - armSpan;
     const lead = (z) => { const k = Math.max(0, z - armSpan) / handSpan; return wing.lead - wing.sweep * k * k; };          // x of the leading edge, from the shoulder
     const chordAt = (z) => { const k = Math.max(0, z - armSpan) / handSpan; return wing.root + (wing.tipChord - wing.root) * Math.pow(k, 1.6); };
+    // The wing's form is the sheet's (shape.wing.camber, .rise, .twist, .dihedral), or these: every bird's, since
+    // 2026-11-18, is cambered, rises to the wrist and lets its outer primaries down. That is a songbird's wing in
+    // a glide; a soaring eagle's lies flat and its tips turn up, so its sheet says so.
+    const camber = wing.camber ?? 0.075, rise = wing.rise ?? 0.065, [twistLead, twistTrail] = wing.twist ?? [0.22, 0.16], slope = wing.dihedral ? Math.tan(wing.dihedral) : 0;
     for (const side of [1, -1]) {
       for (const [bone, z0, z1, [nz, nx], u0, u1] of [[side > 0 ? B.armR : B.armL, 0, armSpan, res.arm, 0, armSpan / reach], [side > 0 ? B.handR : B.handL, armSpan, reach, res.hand, armSpan / reach, 1]]) {
         for (const under of [false, true]) {
@@ -279,15 +294,18 @@ export function buildBird(sheet, level = 0) {
             const z = z0 + (z1 - z0) * (i / nz), k = j / nx;
             // the wing is cambered a little: its edges lie lower than the middle of its chord
             const along = z / reach;
-            const arch = wing.root * 0.075 * (1 - 0.8 * along) * Math.sin(Math.PI * k);
+            const arch = wing.root * camber * (1 - 0.8 * along) * Math.sin(Math.PI * k);
             // The wrist carries the span. The outer primaries sweep down from it and twist
             // out towards the tips; this stays continuous where the arm meets the hand.
-            const wristRise = wing.arm * 0.065 * Math.min(z / armSpan, 1);
+            const wristRise = wing.arm * rise * Math.min(z / armSpan, 1);
             const primary = Math.max(0, (z - armSpan) / handSpan);
-            const twist = primary * primary * wing.tipChord * (0.22 + 0.16 * k);
-            put(out, sx + lead(z) - chordAt(z) * k, sy + wristRise + arch - twist - (under ? 0.3 : 0), (sz + z) * side);
+            const twist = primary * primary * wing.tipChord * (twistLead + twistTrail * k);
+            const y = sy + wristRise + arch - twist - (under ? 0.3 : 0);
+            put(out, sx + lead(z) - chordAt(z) * k, slope ? y + slope * z : y, (sz + z) * side);
             [out.u, out.v] = inCell(under ? CELLS.wingUnder : CELLS.wingUp, u0 + (u1 - u0) * (i / nz), k);
-            out.b0 = bone;
+            // (`joined`, for a sheet that asks: the hand's first row, at the wrist, is the arm's, so that a hand swept
+            // back at the wrist, a raptor's `wrist`, opens no gap there. A hand raised turns about that row: it is where it was.)
+            out.b0 = wing.joined && i === 0 && z0 > 0 ? (side > 0 ? B.armR : B.armL) : bone;
           }, { flip: (side > 0) !== under });
           if (!under && z1 === reach) marks[side > 0 ? 'spreadTipR' : 'spreadTipL'] = Array.from({ length: nx + 1 }, (_, j) => base + j * (nz + 1) + nz);
         }
@@ -319,6 +337,11 @@ export function buildBird(sheet, level = 0) {
           out.b0 = B.tail; out.b1 = c >= 0 ? B.tailR : B.tailL; out.w1 = Math.abs(c);
           if (tail.fan) fanBind(c, out, B);                                  // (a tail that fans in display: life/parts/display.js)
         }, { flip: !under });
+        // `sheer` (optional): a white tail lets the light through. Its under side then takes its light as a face
+        // turned up and a little towards the head would, where one that faces straight down has the ground's
+        // light alone (the eagle's tail, seen from below in the forest, was olive). Towards the head, so that
+        // on the contact sheet, where the bird is stood on its tail to be seen from below, it still faces up.
+        if (under && tail.sheer) for (let v = base * 3, end = skin.count * 3; v < end; v += 3) { const l = Math.hypot(skin.normal[v], skin.normal[v + 1], skin.normal[v + 2]); skin.normal[v] = 0.6 * l; skin.normal[v + 1] = 0.8 * l; skin.normal[v + 2] = 0; }
         if (!under && g === Math.floor((groups - 1) / 2)) { marks.tailBase = [base, base + 1]; if (!tail.fork) marks.tailTip = [base + rows * 2, base + rows * 2 + 1]; }
         // a forked tail is measured to the tips of its two outermost feathers, which are its longest
         if (!under && tail.fork && (g === 0 || g === groups - 1)) marks.tailTip = [...(marks.tailTip || []), base + rows * 2, base + rows * 2 + 1];
@@ -413,6 +436,9 @@ export function buildBird(sheet, level = 0) {
     if (shape.disc) buildDisc(c);
     if (shape.tufts) buildTufts(c);
   }
+
+  // ---- a raptor's trousers, its brow and the fish it carries (life/parts/raptor.js), last of all: only a sheet that asks
+  if (leg.trousers || shape.eye.ridge || shape.prey) buildRaptorParts({ skin, shape, level, body, put, inCell, B, CELLS, SKIN_EDGE, sides: res.leg, toes: res.toes, knee: [kx, ky, kz], heel, foot, ground });
 
   // ---- where the bones turn (the bind pose, metres)
   const at = (x, y, z = 0) => new THREE.Vector3(X(x), Y(y), Z(z));

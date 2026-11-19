@@ -1,9 +1,21 @@
 import * as THREE from 'three';
-import { Skin, curve } from './skin.js';
+import { curve } from './skin.js';
+import { Hide } from './parts/hide.js';
+import { PLATE_BONES, buildPlateKind } from './plate.js';
 import { footLayout, buildPaw } from './parts/paw.js';
 import { RODENT_BONES, RODENT_PARENT, rodentPivots, bushTail, rodentHead, rodentCone, earWidth, measureRodent } from './parts/rodent.js';
 
-// A big animal that walks, built from its species sheet (life/species): the Roosevelt elk first. Metres, in the
+// A beast, built from its species sheet (life/species). There are two ways a sheet may draw one, and each is built
+// by its own builder; everything else about the plan (its bones, how it is measured, the calls life/plans.js makes)
+// is one:
+//   a plate (shape.plate)   the animal drawn from the side, from above and from the front, and lofted between the
+//                           drawings: life/plate.js builds it, life/plateRig.js poses it, life/plateCoat.js paints it.
+//                           The elk, the bear and the otter (2026-11-18), and every beast to come.
+//   rings (shape.trunk)     the form the first beasts were given in 2026-11: what is below builds it, and
+//                           life/beastRig.js and life/coat.js pose and paint it. The squirrel, the chipmunks, the skunk
+//                           and the fisher until each is drawn again as a plate.
+//
+// The rings' builder: a big animal that walks, built from its species sheet: the Roosevelt elk first. Metres, in the
 // bind pose, which is the animal standing square on level ground: +x the way it faces, +y up, +z its right, the
 // origin on the ground under the middle of its body. Each bone's own turn is nothing in the bind pose, and what it
 // carries is built where it stands; a pose turns each bone from there (life/beastRig.js).
@@ -39,6 +51,9 @@ export const BEAST_PARENT = { hips: 'root', chest: 'hips', neck1: 'chest', neck2
   scapL: 'chest', armL: 'scapL', foreL: 'armL', canL: 'foreL', pastL: 'canL', scapR: 'chest', armR: 'scapR', foreR: 'armR', canR: 'foreR', pastR: 'canR',
   thighL: 'hips', shankL: 'thighL', metaL: 'shankL', pastHL: 'metaL', thighR: 'hips', shankR: 'thighR', metaR: 'shankR', pastHR: 'metaR' };
 BEAST_BONES.push(...RODENT_BONES); Object.assign(BEAST_PARENT, RODENT_PARENT);        // (a bushy tail's chain, a cone and its scales: life/parts/rodent.js)
+// (a plate's own bones, life/plate.js: every beast's row of the bone texture has them, since one list is the plan's;
+// a beast of rings holds nothing by them, and they stay at its root)
+BEAST_BONES.push(...PLATE_BONES); for (const name of PLATE_BONES) BEAST_PARENT[name] = 'root';
 const B = Object.fromEntries(BEAST_BONES.map((name, i) => [name, i]));
 // each leg's bones, from its top joint to its hoof
 export const LEGS = {
@@ -75,47 +90,6 @@ const D = Math.PI / 180;
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
-
-// A skin whose vertices may be held by three bones (the trunk low by a shoulder or a haunch: two of the back's,
-// and a leg's). The bird's skin is two, and is left as it was.
-class Hide extends Skin {
-  vertex3(x, y, z, u, v, b0, b1, w1, b2, w2) {
-    this.position.push(x, y, z); this.normal.push(0, 0, 0); this.uv.push(u, v);
-    this.bone.push(b0, b1, b2, 0); this.weight.push(1 - w1 - w2, w1, w2, 0);
-    return this.count - 1;
-  }
-  sheet(cols, rows, at, { flip = false, wrap = false } = {}) {
-    const base = this.count, out = { p: V(), u: 0, v: 0, b0: 0, b1: 0, w1: 0, b2: 0, w2: 0 };
-    for (let j = 0; j <= rows; j += 1) {
-      for (let i = 0; i <= cols; i += 1) {
-        out.b1 = -1; out.w1 = 0; out.b2 = -1; out.w2 = 0;
-        at(i, j, out);
-        this.vertex3(out.p.x, out.p.y, out.p.z, out.u, out.v, out.b0, out.b1 < 0 ? out.b0 : out.b1, out.w1, out.b2 < 0 ? out.b0 : out.b2, out.w2);
-      }
-    }
-    const first = this.index.length;
-    for (let j = 0; j < rows; j += 1) {
-      for (let i = 0; i < cols; i += 1) {
-        const a = base + j * (cols + 1) + i, b = a + 1, c = a + cols + 1, d = c + 1;
-        if (flip) this.index.push(a, c, b, b, c, d); else this.index.push(a, b, c, b, d, c);
-      }
-    }
-    this.shade(first, this.index.length);
-    if (wrap) {
-      for (let j = 0; j <= rows; j += 1) {
-        const a = (base + j * (cols + 1)) * 3, b = (base + j * (cols + 1) + cols) * 3;
-        for (let k = 0; k < 3; k += 1) { const sum = this.normal[a + k] + this.normal[b + k]; this.normal[a + k] = sum; this.normal[b + k] = sum; }
-      }
-    }
-    return base;
-  }
-  // a fan from one vertex to a ring of `n` + 1 vertices from `first` (the last on the first), facing `out` if not `flip`
-  cap(centre, first, n, flip) {
-    const from = this.index.length;
-    for (let i = 0; i < n; i += 1) { const a = first + i; if (flip) this.index.push(centre, a + 1, a); else this.index.push(centre, a, a + 1); }
-    this.shade(from, this.index.length);
-  }
-}
 
 // A row of a table of rows, by Catmull-Rom through them: `k` from 0 (the first row) to 1 (the last).
 function rowAt(table, k, out = []) {
@@ -176,6 +150,7 @@ export function buildBeast(sheet, level = 0) {
   }
   pivots.tail = V(shape.tail.at[0], shape.tail.at[1], 0);
   rodentPivots(shape, pivots);
+  for (const name of PLATE_BONES) pivots[name] = V();
 
   // ---- the trunk: one skin from the rump to inside the head
   // Each ring is held by the bones of the back and the neck by where its middle lies along them (the line through
@@ -474,6 +449,7 @@ export function buildBeast(sheet, level = 0) {
 
 // A species ready to be made into animals: its sheet and its three detail levels.
 export function buildBeastKind(sheet) {
+  if (sheet.shape.plate) return buildPlateKind(sheet, BEAST_BONES);
   const levels = [0, 1, 2].map((level) => buildBeast(sheet, level));
   return { sheet, levels, plan: 'beast', triangles: levels.map((l) => l.triangles) };
 }

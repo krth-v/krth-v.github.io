@@ -1,16 +1,24 @@
 import * as THREE from 'three';
 
 // Walk along the trail, look anywhere. Scroll, W/S or the arrow keys move, and shift
-// makes a walk a run; dragging turns the head. The gaze is an offset from the trail's
-// heading, so it is carried round the bends.
+// makes a walk a run. The gaze is an offset from the trail's heading, so it is carried
+// round the bends.
+//
+// Looking (the owner, 2026-11-19: "Instead of dragging to look around, make a circular crosshair so that you only
+// have to move your mouse around to look around"): a click with a mouse takes the pointer (the browser's pointer
+// lock), and from then on the mouse turns the head, the view's middle being where the walker looks (js/forest/hud.js
+// draws the thin circle there). Escape gives the pointer back, as a browser always does. A finger or a pen still
+// drags, as a mouse does while the pointer is free; `lock: false` never takes the pointer (the tools' pages).
+// `state.locked` says whether the pointer is taken, and `state.held`, set by whoever holds the view on something
+// (a close-up: life/index.js), stops the mouse turning the head meanwhile.
 //
 // Forward is the way the walker looks (the owner, 2026-11-15: "when the camera turns around, pressing W should
 // still cause the character to move forward"). There are only two ways to go on a trail, so W takes whichever
 // of them is nearer the gaze, S the other, and the scroll wheel goes by the same rule.
 // `state.free`, when set, is a place to look from that is not on the trail at all: { x, y, z, yaw, pitch },
 // with yaw the bearing about +y (0 looks along -z) and both in radians. The cabin's window is one.
-export function createTrailController({ trail, camera, element, eyeHeight = 1.6 }) {
-  const state = { s: 0, speed: 0, yaw: 0, pitch: 0, push: 0, auto: null, free: null };
+export function createTrailController({ trail, camera, element, eyeHeight = 1.6, lock = true }) {
+  const state = { s: 0, speed: 0, yaw: 0, pitch: 0, push: 0, auto: null, free: null, locked: false, held: false };
   const keys = new Set();
   const position = new THREE.Vector3(), tangent = new THREE.Vector3(), euler = new THREE.Euler(0, 0, 0, 'YXZ');
   // Metres per second. A walk was 1.4, a person's own pace, and the owner found it "far too slow": 579 m of
@@ -37,13 +45,33 @@ export function createTrailController({ trail, camera, element, eyeHeight = 1.6 
     // steady scroll holds about 5 m/s. At a third of this a notch was a quarter of a metre and the loop took 1,100.
     state.push = THREE.MathUtils.clamp(state.push - pixels * 0.012, -3.6, 3.6);
   };
+  // Radians for each pixel the mouse moves while the pointer is taken: a hand's breadth of mouse is a quarter turn.
+  const LOOK = 0.0021;
+  const taken = () => document.pointerLockElement === element;
+  const take = () => {
+    if (!lock || taken() || !element.requestPointerLock) return;
+    // (a browser may refuse: asked again within a second of Escape, or with no press behind it. The pointer then
+    // stays free and a drag turns the head, as before)
+    try { const asked = element.requestPointerLock(); if (asked && asked.catch) asked.catch(() => {}); } catch { /* refused */ }
+  };
+  const onLock = () => { state.locked = taken(); if (state.locked) drag = null; };
+  const onMouse = (e) => {
+    if (!state.locked || state.held || state.auto || state.free) return;
+    // (now and then a browser reports one move of hundreds of pixels as the pointer is taken or the window regains it)
+    const dx = THREE.MathUtils.clamp(e.movementX || 0, -160, 160), dy = THREE.MathUtils.clamp(e.movementY || 0, -160, 160);
+    state.yaw -= dx * LOOK;
+    state.pitch = THREE.MathUtils.clamp(state.pitch - dy * LOOK, -1.3, 1.3);
+  };
   const onDown = (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;       // a right click opens a menu and its pointerup never arrives
+    if (e.pointerType === 'mouse' && lock) { take(); if (state.locked) return; }
+    // (until the pointer is taken, or if the browser will not give it, the press is a drag as it always was. A
+    // browser refuses to capture a pointer it has been asked to lock: the drag then ends where the pointer leaves)
     drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
-    element.setPointerCapture?.(e.pointerId);
+    try { element.setPointerCapture?.(e.pointerId); } catch { /* being locked */ }
   };
   const onMove = (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag || e.pointerId !== drag.id || state.locked) return;
     // grab-style: the scene follows the pointer, as in a panorama viewer
     state.yaw += (e.clientX - drag.x) * 0.0035;
     state.pitch = THREE.MathUtils.clamp(state.pitch + (e.clientY - drag.y) * 0.0035, -1.3, 1.3);
@@ -61,6 +89,10 @@ export function createTrailController({ trail, camera, element, eyeHeight = 1.6 
   element.addEventListener('lostpointercapture', onUp);
   window.addEventListener('blur', release);
   document.addEventListener('visibilitychange', release);
+  document.addEventListener('pointerlockchange', onLock);
+  document.addEventListener('mousemove', onMouse);
+  // gives the pointer back (the forest is put away: the cabin's page, when the visitor goes indoors)
+  const free = () => { if (taken()) document.exitPointerLock?.(); };
 
   function update(dt) {
     if (state.free) {
@@ -114,7 +146,10 @@ export function createTrailController({ trail, camera, element, eyeHeight = 1.6 
     element.removeEventListener('lostpointercapture', onUp);
     window.removeEventListener('blur', release);
     document.removeEventListener('visibilitychange', release);
+    document.removeEventListener('pointerlockchange', onLock);
+    document.removeEventListener('mousemove', onMouse);
+    free();
   }
 
-  return { state, update, dispose };
+  return { state, update, free, dispose };
 }

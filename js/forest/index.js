@@ -43,6 +43,7 @@ import { buildStructures, cabinFloor } from './world/structures.js';
 import { buildLantern, LANTERN } from './world/lantern.js';
 import { growLife } from './life/index.js';
 import { createSound } from './sound/index.js';
+import { createHud } from './hud.js';
 
 // The forest: its own scene, camera and render chain on the caller's renderer.
 // Nothing here imports from, or is imported by, the cabin's modules except the
@@ -77,6 +78,50 @@ function createTrailMap(trail) {
 // room's frames (createForestSlowly). The steps change nothing of what is built or in what order.
 const drain = (steps) => { for (;;) { const { done, value } = steps.next(); if (done) return value; } };
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+// Every texture a scene's materials read.
+function texturesOf(scene) {
+  const textures = new Set();
+  scene.traverse((object) => {
+    const materials = Array.isArray(object.material) ? object.material : object.material ? [object.material] : [];
+    for (const material of materials) {
+      for (const uniform of Object.values(material.uniforms || {})) {
+        const value = uniform && uniform.value;
+        if (value && value.isTexture) textures.add(value);
+        else if (Array.isArray(value)) for (const each of value) if (each && each.isTexture) textures.add(each);
+      }
+      for (const key of ['map', 'normalMap', 'alphaMap']) if (material[key] && material[key].isTexture) textures.add(material[key]);
+    }
+  });
+  return textures;
+}
+// A painted sheet's pixels are let go once the GPU has them. three r160 sends a texture once and keeps what it was
+// sent from: a cut-out sheet's canvas, a copy of that canvas and its mip levels, which for the forest and a visit's
+// animals came to 955 MB held for the life of the page (counted 2026-11-19; the renderer process 1,338 MB against 831
+// without). Nothing in the forest reads a sheet's pixels again (the studios and show=textures paint their own), so
+// each is let go right after its upload (`onUpdate`), its sizes kept. A canvas two textures were painted on goes when
+// the last of them has been sent. What cannot be sent again cannot survive a lost WebGL context: the pages that show
+// the forest start again, or fall back, if that happens (dev.js, outside.js).
+function letPixelsGo(renderer, textures) {
+  const waiting = new Map();
+  const painted = [...textures].filter((t) => !t.isDataTexture && !t.isDepthTexture && !t.isRenderTargetTexture && !t.isCompressedTexture
+    && typeof HTMLCanvasElement !== 'undefined' && t.image instanceof HTMLCanvasElement);
+  for (const texture of painted) waiting.set(texture.image, (waiting.get(texture.image) || 0) + 1);
+  const release = (texture) => {
+    texture.onUpdate = null;
+    const canvas = texture.image;
+    if (texture.mipmaps && texture.mipmaps.length) texture.mipmaps = texture.mipmaps.map(({ width, height }) => ({ width, height }));
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+    texture.image = { width: canvas.width, height: canvas.height };
+    const left = waiting.get(canvas) - 1;
+    waiting.set(canvas, left);
+    if (left <= 0) canvas.width = canvas.height = 0;
+  };
+  for (const texture of painted) {
+    const sent = renderer.properties.get(texture);
+    if (sent.__webglTexture && sent.__version === texture.version) release(texture); else texture.onUpdate = release;
+  }
+  return painted.length;
+}
 // A painter's steps, each labelled with what is being painted; a painter that is no generator is one step.
 function* stepsOf(label, made) {
   if (!made || typeof made.next !== 'function') { yield label; return made; }
@@ -160,7 +205,11 @@ export async function createForestSlowly(options, { budget = 8, between = nextFr
     await between();
   }
 }
-function* growForest({ renderer, element = renderer.domElement, look: lookName, overrides = {}, seed = 1, hide = [], birds, visit, hour = 12, night = 'dark', lantern = true, sound: audible = true }) {
+function* growForest({ renderer, element = renderer.domElement, look: lookName, overrides = {}, seed = 1, hide = [], birds, visit, hour = 12, night = 'dark', lantern = true, sound: audible = true,
+  guide = !(typeof window !== 'undefined' && window.__automated) }) {
+  // (`guide`: the visitor's own things over the view, js/forest/hud.js, and the mouse turning the head once the view is
+  // clicked, nav/trailController.js. A page a tool drives says it is one, `window.__automated`, and has neither: its
+  // clicks are where it puts them and its frames have nothing laid over them.)
   if (night !== 'dark' && night !== 'approved') throw new Error(`forest: there is no night called "${night}": there is dark and approved`);
   const settings = forestSettings(overrides);
   const look = getLook(lookName);
@@ -191,6 +240,8 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
   yield 'ground';
   const far = yield* stepsOf('far view', backdropTexturesSteps(look));
   createNoiseTexture(U);
+  // (the canvases the far view was painted on, and read back from, are of no more use: 17 MB. show=textures paints its own)
+  for (const canvas of [far.canvas, far.air, far.peak && far.peak.canvas]) if (canvas) { canvas.width = 0; canvas.height = 0; }
 
   const make = createMaterials(U, look, { msaa: settings.msaa, prepass: settings.prepass, mossMap: floor.texture, mirror: settings.mirror });
   const conifer = (spec, moss, tone) => {
@@ -594,12 +645,13 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
 
   const post = createPost(renderer, U, settings);
   post.applyLook(look);
-  const nav = createTrailController({ trail, camera, element });
+  const nav = createTrailController({ trail, camera, element, lock: guide });
   const governor = createGovernor({ minScale: settings.minScale, onScale: (s) => post.setScale(s) });
   const life = yield* growLife({ scene, camera, nav, U, look, settings, terrain, trail, layout, plants, post, element, records: (name) => stands[name] || layout[name],
     sceneRange: [cathedral.from, cathedral.to], count: birds, visit: visit === 'busy' ? 1 : visit ?? 1 + Math.floor(Math.random() * 999999), busy: visit === 'busy', hour, frameStats: () => stats() });
   // (the forest's sound begins at the visitor's first click or key: sound/index.js)
-  const sound = audible ? createSound() : null;
+  const hud = createHud({ element, camera, nav, guide });
+  const sound = audible ? createSound({ heard: hud.voice }) : null;
   const frustum = new THREE.Frustum(), viewProjection = new THREE.Matrix4(), walker = new THREE.Vector3();
   const REFERENCE = Math.tan(THREE.MathUtils.degToRad(25));
   const last = { calls: 0, triangles: 0, sunMapRedrawn: false, packMs: 0, drawMs: 0 };
@@ -675,6 +727,7 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
     // outside is no close-up's: one still easing out is let go at once, its near plane, its blur and its mist with it)
     life.update(dt, cfg, day, !!view);
     if (sound) sound.frame(dt, { camera, x: walker.x, z: walker.z, open: light.U.uOpen.value, t, voices: life.visit ? life.visit.voices : null });
+    if (!view) hud.frame({ hovering: life.hovering, focused: life.focused >= 0 });
     lamp.visible = carried && lit > 0 && camera.fov > 44;                            // not through a close-up's long lens
     if (view) {
       camera.position.copy(view.position); camera.quaternion.copy(view.quaternion);
@@ -723,7 +776,9 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
     } finally {
       renderer.info.autoReset = autoReset;   // the renderer is shared with the cabin from milestone 5
     }
-    if (governed) governor.frame(dt * 1000);
+    // (not counted against the picture: a frame in which the sun's map was drawn again, and one after the page was away,
+    // whose time the caller has cut short)
+    if (governed) governor.frame(dt * 1000, last.sunMapRedrawn || dt >= 0.1);
   }
 
   // What the walker's view is drawing right now, split the way the budget is.
@@ -745,8 +800,26 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
       packMs: last.packMs, drawMs: last.drawMs, sunMapRedrawn: last.sunMapRedrawn, settings, look: look.name };
   }
 
+  // What a walk would otherwise do the first time each thing comes into view, done beforehand: every texture sent to
+  // the GPU, a few to a frame (`budget` ms of them, then `between`), and every program the scene needs compiled
+  // (post.js `compile`). On the forest's own page nothing was warmed until 2026-11-19: on a first run round the walk 21
+  // frames took 6 to 50 ms of script where the median took 1.9, each one a program or a sheet first used. The cabin's
+  // page has always done this (js/outside.js), and now does it through here.
+  async function warm({ budget = 6, between = nextFrame } = {}) {
+    const textures = texturesOf(scene);
+    let until = performance.now() + budget;
+    for (const texture of textures) {
+      if (texture.isRenderTargetTexture || texture.isDepthTexture) continue;
+      renderer.initTexture(texture);
+      if (performance.now() > until) { await between(); until = performance.now() + budget; }
+    }
+    await post.compile(scene, camera);
+    return textures.size;
+  }
+  letPixelsGo(renderer, texturesOf(scene));
+
   function dispose() {
-    life.dispose(); nav.dispose(); post.dispose(); sunMap.dispose(); if (sound) sound.dispose();
+    life.dispose(); nav.dispose(); post.dispose(); sunMap.dispose(); if (sound) sound.dispose(); hud.dispose();
     scene.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
       if (o.material) o.material.dispose();
@@ -758,10 +831,10 @@ function* growForest({ renderer, element = renderer.domElement, look: lookName, 
     for (const made of [...Object.values(sheets), ...Object.values(barks), floor, tread, gravel, meadow, far]) { made.texture.dispose(); made.normal?.dispose(); made.aux?.dispose(); }
   }
 
-  return { scene, camera, nav, trail, terrain, places: built.places, settings, look, frame, setSize, stats, dispose,
+  return { scene, camera, nav, trail, terrain, places: built.places, settings, look, frame, setSize, stats, dispose, warm,
     setScale: (s) => { governed = false; post.setScale(s, false); },
     setGoverned: (on) => { governed = on; if (on) post.setScale(governor.scale); },
-    measureFrom: (position) => { measuredFrom = position; }, testEach: (on) => { eachPlant = on; }, post, light, life, sound,
+    measureFrom: (position) => { measuredFrom = position; }, testEach: (on) => { eachPlant = on; }, post, light, life, sound, hud,
     // (for the tools: where the plants of a kind stand, as the instancer has them: x, y, z of each, its scale, and its phase and tint)
     plantsOf: (name) => { const set = sets.find((one) => one.name === name); return set ? { count: set.count, pos: set.pos, scale: set.scale, extra: set.extra } : null; },
     plants,          // (every kind as built, for the tools: its meshes and what stands on it, plants/build.js)

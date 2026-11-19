@@ -27,6 +27,8 @@ import { createWave } from './wave.js';
 const PIXELS = 3;                 // "plainly": in the frame, no trunk in the way, and at least this many pixels long
 const NOTICED = 6;                // "in sight", for the count of what a walk meets: this many pixels long, for this long
 const GLIMPSE = 0.7;              // seconds: in all, while the animal is there (not at one stretch)
+const UNSEEN = [0.05, 0.08];       // seconds: how much time gathers before an animal nobody watches lives it (a party's own, between these)
+const LONGEST = 0.1;              // seconds: the longest single step an animal is given (what the counted walks run at)
 const SWIFT = 16;                 // m/s: the fastest a small bird is meant to go in plain view (the tools' bar for `fastest`)
 const _v = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _f = new THREE.Vector3(), _w = new THREE.Vector3();
 const CLOCK = Object.fromEntries(ROLL.map((row) => [row.key, row.clock]));
@@ -43,7 +45,7 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
   // round; how many went off for a while, and how many for good
   const comings = { flew: 0, were: 0, went: 0, gone: 0 };
   const eye = new THREE.Vector3(), view = { camera: null, focal: 1158 };
-  let tally = false;
+  let tally = false, turn = 0, parties = 0;
   // What a count of walks keeps an eye on, for every kind, and what each is meant to be: the least height of
   // any animal over the ground (none under it); the fastest any moved between two steps in both of which it
   // was plainly seen (a flight's pace, never a jump); and the least distance between two that were not on the
@@ -158,7 +160,8 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
     const d = bird.at.distanceTo(eye);
     if (tally && d <= reach) heard[bird.key] = (heard[bird.key] || 0) + 1;
     if (voices.length >= 32) voices.shift();
-    voices.push({ key: bird.key, what, x: bird.at.x, y: bird.at.y, z: bird.at.z, far: d, reach, at: world.clock, hold });
+    // (`who`: the animal itself, so that what shows where a voice comes from can follow it: js/forest/hud.js)
+    voices.push({ key: bird.key, what, x: bird.at.x, y: bird.at.y, z: bird.at.z, far: d, reach, at: world.clock, hold, who: bird });
   }
 
   const world = {
@@ -188,7 +191,17 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
     // is a spot free: no other animal on it, and none on its way to it (a big animal: not within `room` of its body)
     free: (point, self, room = 0.6) => birds.every((b) => b === self || (b.body ? fromBody(b, point) > room : b.at.distanceToSquared(point) > room * room && !(b.flight && b.flight.d.distanceToSquared(point) < room * room))),
     // the other animals within `reach` of a spot, seen from above (into `list`)
-    others: (x, z, reach, self, list = []) => { list.length = 0; for (const b of birds) if (b !== self && Math.hypot(b.at.x - x, b.at.z - z) < reach) list.push(b); return list; },
+    others: (x, z, reach, self, list = []) => {
+      list.length = 0;
+      // (the same answers as Math.hypot(dx, dz) < reach: only a pair within a billionth of the limit is asked of it)
+      const r2 = reach * reach, sure = r2 * (1 - 1e-9), never = r2 * (1 + 1e-9);
+      for (const b of birds) {
+        if (b === self) continue;
+        const dx = b.at.x - x, dz = b.at.z - z, d2 = dx * dx + dz * dz;
+        if (d2 < sure || (d2 <= never && Math.hypot(dx, dz) < reach)) list.push(b);
+      }
+      return list;
+    },
   };
 
   // How far a point is from a big animal's body (see `crowd`).
@@ -256,7 +269,9 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
       home: one.way.spot ? one.way.spot(one.home, r, habitat) : one.home, seed: (one.seed + one.times * 7919) >>> 0,
       // (how long it is and the box it fills, for what can be seen of it: its body plan's, life/bodies.js)
       size: bodyOf(sheet).size(sheet), body: bodyOf(sheet).body(sheet), shown: -1, screen: { x: 0, y: 0, r: 0, d: 0, seen: false },
-      who: one, left: null, held: false, sight: 0, life: { first: world.clock === 0, gap: one.way.gap } };
+      who: one, left: null, held: false, sight: 0, life: { first: world.clock === 0, gap: one.way.gap },
+      // (time it has not yet lived, and how much of it gathers before it lives it while nobody watches: `step`)
+      owed: 0, pulse: (one.flock || one.party).pulse || ((one.flock || one.party).pulse = UNSEEN[0] + ((parties += 1) * 0.618 % 1) * (UNSEEN[1] - UNSEEN[0])) };
     if (one.flock && bird.home && typeof bird.home === 'object' && !bird.home.party) bird.home.party = one.flock;     // (a kind's own `spot`, about its home)
     // (a kind whose beginning throws is out of the visit, named, as one whose step throws is)
     try { bird.act = one.way.act(bird, world); }
@@ -320,7 +335,27 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
   // `yaw` (how far the walker's view is turned from the trail, radians), `auto` (the walker set by a script, or off
   // the trail) and `elapsed` (the frame's own time, where `dt` is held short) are for what the animals feel as a
   // sudden movement (life/behave.js `feelWalker`)
-  function step(dt, { camera, focal, speed = 0, s = 0, day = 1, sunHeight = 20, yaw = null, auto = false, elapsed = null }) {
+  // An animal lives the time it is owed: all of it at once, or in equal parts of a tenth of a second at the most
+  // (the longest step the families are run at). One whose step throws is out of the visit, named.
+  function live(bird) {
+    const parts = Math.max(1, Math.ceil(bird.owed / LONGEST - 1e-9)), part = bird.owed / parts;
+    bird.owed = 0;
+    try { for (let k = 0; k < parts && bird.left == null; k += 1) bird.act(part); }
+    catch (e) {
+      if (!threw.has(bird.key)) { threw.add(bird.key); console.error(`life: ${bird.key} (${bird.state || 'no state'}) threw: ${e && e.stack ? e.stack : e}`); }
+      broken.push({ key: bird.key, what: 'threw', state: bird.state, doing: bird.doing, error: String(e && e.message || e).slice(0, 300), at: +world.clock.toFixed(1) });
+      bird.left = Infinity; bird.held = false; bird.who.out = true;
+    }
+    // (and one whose place is not a number is nowhere: no check could see it, and no spot was free of it)
+    if (bird.left == null && !Number.isFinite(bird.at.x + bird.at.y + bird.at.z)) {
+      broken.push({ key: bird.key, what: 'threw', state: bird.state, doing: bird.doing, error: 'its place is not a number', at: +world.clock.toFixed(1) });
+      bird.at.set(0, -1000, 0); bird.left = Infinity; bird.held = false; bird.who.out = true;
+    }
+  }
+  // (for the page: an animal about to be drawn that has time owed lives it first, so that nothing is drawn from a
+  // state that is behind. One that leaves in doing so is taken away by the next step.)
+  function settle(bird) { if (bird.left == null && bird.owed > 0) live(bird); }
+  function step(dt, { camera, focal, speed = 0, s = 0, day = 1, sunHeight = 20, yaw = null, auto = false, elapsed = null, watched = null }) {
     if (!(dt > 0)) return;                         // a frame that takes no time changes nothing (the pop check draws two)
     view.camera = camera; view.focal = focal;
     eye.copy(camera.position);
@@ -329,21 +364,22 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
     // by night nothing of the day comes in: what is at roost was at roost when the visit began
     for (const one of who) if (!one.bird && !one.gone && world.clock >= one.until && (world.clock === 0 || (day > 0.5 ? CLOCK[one.key] !== 'night' : CLOCK[one.key] !== 'day'))) come(one);
     world.clock += dt;
+    // Who is watched. Every animal that was here lived its whole life every frame, wherever it was on the 579 m of
+    // the walk, and more than half of that time went on animals nobody could see or come near. With `watched` (the
+    // page's test: held, within the distance its kind heeds a walker at, or near enough to be drawn and in or beside
+    // the frame) an animal that is not watched, and none of whose party is, lets its time gather and lives it in one
+    // step of 0.05 to 0.08 s (each party at a pace of its own, so that they do not all fall on one frame): the step
+    // every family is already run at by the counted walks. One that comes into the frame with time owed lives it
+    // before it is drawn (`settle`). The count (`tally`) and a caller that gives no test step everyone every time.
+    const spare = !!watched && !tally;
+    turn += 1;
+    if (spare) for (const bird of birds) if (bird.left == null && (bird.held || watched(bird))) (bird.who.flock || bird.who.party).seen = turn;
     for (let i = birds.length - 1; i >= 0; i -= 1) {
       const bird = birds[i];
       bird.snap = false;
       if (bird.left == null) {
-        try { bird.act(dt); }
-        catch (e) {
-          if (!threw.has(bird.key)) { threw.add(bird.key); console.error(`life: ${bird.key} (${bird.state || 'no state'}) threw: ${e && e.stack ? e.stack : e}`); }
-          broken.push({ key: bird.key, what: 'threw', state: bird.state, doing: bird.doing, error: String(e && e.message || e).slice(0, 300), at: +world.clock.toFixed(1) });
-          bird.left = Infinity; bird.held = false; bird.who.out = true;
-        }
-        // (and one whose place is not a number is nowhere: no check could see it, and no spot was free of it)
-        if (bird.left == null && !Number.isFinite(bird.at.x + bird.at.y + bird.at.z)) {
-          broken.push({ key: bird.key, what: 'threw', state: bird.state, doing: bird.doing, error: 'its place is not a number', at: +world.clock.toFixed(1) });
-          bird.at.set(0, -1000, 0); bird.left = Infinity; bird.held = false; bird.who.out = true;
-        }
+        bird.owed += dt;
+        if (!spare || (bird.who.flock || bird.who.party).seen === turn || bird.owed >= bird.pulse) live(bird);
       }
       if (bird.left != null && !bird.held) { go(bird, i); continue; }
       if (!tally) continue;
@@ -415,7 +451,7 @@ export function createVisit({ habitat, trail, ways, sheets, seed, hour = 12, bus
     // the migrants' wave as one party, if the day has one (life/wave.js): where it is, and whether it is here or gone
     flock: wave ? wave.summary() : null });
 
-  return { seed, birds, who, world, step, summary, voices, flock: wave ? wave.party : null, set tally(on) { tally = on; }, get broken() { return broken; } };
+  return { seed, birds, who, world, step, settle, summary, voices, flock: wave ? wave.party : null, set tally(on) { tally = on; }, get broken() { return broken; } };
 }
 
 // A visit walked once round, with nothing drawn: from `from` metres along the walk, at `pace` metres a second,
