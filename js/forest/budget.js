@@ -24,12 +24,16 @@ export const CEILINGS = { foliageTriangles: 550000, solidTriangles: 900000, draw
 // `mirror` is how the river finds what it mirrors (light/materials.js WATER_FRAG): how many steps a mirrored
 // ray is followed over the map of the banks, and how many times longer each step is than the last, so that
 // the last of them is 280 m out whatever their number. Fewer steps are fewer reads, and a softer mirrored edge.
-// Budget the HDR scene in physical pixels. The final composite and HTML controls stay at
-// display resolution, and small windows use their full resolution on every tier.
+// `scenePixels`, where a tier gives it, is the most pixels its HDR scene is drawn at: a larger drawing buffer is drawn
+// smaller and scaled up in the final pass (post.js sizeTargets). The high tier gives none: its forest is drawn at
+// the drawing buffer's own size, as it was approved, and only the governor trims it when frames come late. (It was
+// 1440x810 for a day, 2026-11-18, and the owner rejected the picture: "A lot of the texture and density of nature
+// and the quality of the light is degraded.") The mid and low tiers keep a budget for a screen larger than a
+// laptop's, which their GPUs never drew in time.
 const TIERS = {
-  high: { scenePixels: 1440 * 810, msaa: 2, prepass: false, shaftSteps: 12, bloom: true, sunMap: 4096, density: 1.0, lodScale: 1.0, hand: 1.0, tail: 1.0, minScale: 0.7, mirror: [12, 1.6] },
-  mid:  { scenePixels: 1152 * 720, msaa: 2, prepass: false, shaftSteps: 6,  bloom: true, sunMap: 2048, density: 0.7, lodScale: 0.8, hand: 1.0, tail: 1.0, minScale: 0.6, mirror: [8, 2.09] },
-  low:  { scenePixels: 960 * 600, msaa: 0, prepass: false, shaftSteps: 0,  bloom: false, sunMap: 1024, density: 0.5, lodScale: 0.6, hand: 1.0, tail: 1.0, minScale: 0.5, mirror: [5, 3.64] },
+  high: { msaa: 2, prepass: false, shaftSteps: 12, bloom: true, sunMap: 4096, density: 1.0, lodScale: 1.0, hand: 1.0, tail: 1.0, minScale: 0.7, mirror: [12, 1.6] },
+  mid:  { scenePixels: 1920 * 1200, msaa: 2, prepass: false, shaftSteps: 6,  bloom: true, sunMap: 2048, density: 0.7, lodScale: 0.8, hand: 1.0, tail: 1.0, minScale: 0.6, mirror: [8, 2.09] },
+  low:  { scenePixels: 1440 * 900, msaa: 0, prepass: false, shaftSteps: 0,  bloom: false, sunMap: 1024, density: 0.5, lodScale: 0.6, hand: 1.0, tail: 1.0, minScale: 0.5, mirror: [5, 3.64] },
 };
 
 export function forestSettings(overrides = {}) {

@@ -175,7 +175,8 @@ export function createPost(renderer, U, opts) {
       chain[0].setSize(Math.ceil(w / 4), Math.ceil(h / 4)); chain[1].setSize(Math.ceil(w / 4), Math.ceil(h / 4));
       chain[2].setSize(Math.ceil(w / 8), Math.ceil(h / 8)); chain[3].setSize(Math.ceil(w / 8), Math.ceil(h / 8));
     }
-    finalMat.uniforms.uShaftTexel.value.set(1 / shaftTarget.width, 1 / shaftTarget.height);
+    // (four scene pixels, as it always was: the shaft target's own texel is a little smaller where the size is no multiple of four)
+    finalMat.uniforms.uShaftTexel.value.set(4 / w, 4 / h);
   }
   // The cabin supplies the size of the visible window. The standalone page uses the drawing buffer.
   function resize(width = null, height = null) {
