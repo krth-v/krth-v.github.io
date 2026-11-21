@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Krutharth Vaddiyar — a quiet room with a window on the wild</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Caveat:wght@500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+    /* the hidden attribute must win over the flex display of loader/fatal */
+    [hidden] { display: none !important; }
+    #scene { position: fixed; inset: 0; z-index: 0; width:100%; height:100vh; display:block; }
+  </style>
+</head>
+<body>
+
+  <!-- 3D scene mounts here -->
+  <canvas id="scene"></canvas>
+
+<!-- loading / error -->
+  <div id="loader">
+    <div class="loader-inner">
+      <div class="loader-glyph">❧</div>
+      <div class="loader-text">warming the room…</div>
+    </div>
+  </div>
+  <div id="fatal" hidden>
+    <div class="fatal-inner">
+      <div id="fatal-title" style="font-family:'Fraunces',serif;font-size:22px;margin-bottom:8px;">Couldn't start the 3D scene</div>
+      <div id="fatal-msg" style="color:#6b6760;"></div>
+      <div id="fatal-help" style="color:#6b6760;font-size:13px;line-height:1.5;margin-top:12px;text-align:left;"></div>
+      <div id="fatal-detail" style="color:#a39e96;font-size:11px;margin-top:12px;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;"></div>
+    </div>
+  </div>
+
+  <!-- top bar -->
+  <header id="topbar">
+    <div class="title-block">
+      <div class="name">Krutharth Vaddiyar</div>
+      <div class="tagline">Math @ Princeton · a quiet room with a window on the wild</div>
+    </div>
+    <div class="topbar-tools">
+      <div class="status">
+        <span id="time-label">daylight</span>
+        <span class="divider"></span>
+        <span class="hint">look around — hover the objects</span>
+      </div>
+      <!-- the way outside (js/outside.js): shown once the forest beyond the window is there -->
+      <div class="outside-bar" id="outside-bar" hidden>
+        <button type="button" class="pill" data-outside="look">Look outside</button>
+        <button type="button" class="pill" data-outside="out" hidden>Step outside</button>
+        <button type="button" class="pill" data-outside="desk" hidden>Back to the desk</button>
+        <button type="button" class="pill" data-outside="in" hidden>Back inside</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- what the page fades through on the way out of the door and back -->
+  <div id="veil" aria-hidden="true"></div>
+
+  <!-- floating hover label -->
+  <div id="hover-label" hidden></div>
+
+  <!-- ===== MacBook "screen" OS (shown when you click the laptop) ===== -->
+  <div id="computer-ui" hidden>
+    <div class="os">
+      <div class="os-bar">
+        <span class="os-apple" aria-hidden="true"></span>
+        <span class="os-app">Finder</span>
+        <span class="os-grow"></span>
+        <span class="os-status">Krutharth · 100% · Mon 9:41</span>
+        <button class="os-leave" data-os="leave" title="Back to the room">Leave ⤢</button>
+      </div>
+      <div class="os-desktop">
+
+        <!-- Finder window — opens straight to Projects -->
+        <div class="finder" id="finder">
+          <div class="finder-top">
+            <span class="lights"><i class="lr" data-os="leave" title="Close"></i><i class="ly"></i><i class="lg"></i></span>
+            <span class="finder-title">Projects</span>
+            <span class="os-grow"></span>
+            <span class="finder-count" id="finder-count"></span>
+          </div>
+          <div class="finder-cols">
+            <div class="finder-side">
+              <div class="side-h">Favorites</div>
+              <div class="side-i active">📁 Projects</div>
+            </div>
+            <div class="finder-grid" id="finder-grid"></div>
+          </div>
+        </div>
+
+        <!-- Quick Look preview -->
+        <div class="ql" id="ql" hidden>
+          <div class="ql-card">
+            <div class="ql-top">
+              <span class="lights"><i class="lr" data-os="ql-close" title="Close"></i><i class="ly"></i><i class="lg"></i></span>
+              <span class="ql-title" id="ql-title">File</span>
+            </div>
+            <div class="ql-body" id="ql-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== aged-book Markdown reader (revealed after the 3D page turn) ===== -->
+  <div id="book-reader" hidden role="dialog" aria-modal="true" aria-labelledby="book-reader-title">
+    <div class="book-reader-shadow" aria-hidden="true"></div>
+    <div class="book-spread">
+      <div class="book-gutter" aria-hidden="true"></div>
+      <div class="book-reader-bar">
+        <span class="book-reader-folio">from the cabin shelf</span>
+        <span id="book-reader-title"></span>
+        <button class="book-reader-leave" data-book-leave>close the book ✕</button>
+      </div>
+      <article id="book-reader-content"></article>
+      <span class="book-page-number left" aria-hidden="true">— 1 —</span>
+      <span class="book-page-number right" aria-hidden="true">— 2 —</span>
+    </div>
+  </div>
+
+  <!-- ===== content panels ===== -->
+  <div id="overlay" hidden>
+    <div class="backdrop" data-close></div>
+
+    <!-- RESUME — in-page PDF viewer -->
+    <section class="panel pdf-panel" data-panel="resume" hidden>
+      <div class="panel-bar blue">
+        <div class="panel-title">Résumé</div>
+        <div class="bar-actions">
+          <a class="dl" href="vaddiyar_krutharth_resume.pdf" download="Krutharth_Vaddiyar_Resume.pdf">download ↓</a>
+          <button class="x" data-close>close ✕</button>
+        </div>
+      </div>
+      <div class="panel-body pdf-body">
+        <iframe class="pdf-frame" src="vaddiyar_krutharth_resume.pdf#view=FitH" title="Résumé — Krutharth Vaddiyar"></iframe>
+      </div>
+    </section>
+
+    <!-- BLOG -->
+    <section class="panel" data-panel="blog" hidden>
+      <div class="panel-bar orange">
+        <div class="panel-title">Blog — Field Notes</div>
+        <button class="x" data-close>close ✕</button>
+      </div>
+      <div class="panel-body">
+        <p class="intro">Field notes — math, birds, and whatever's out the window.</p>
+        <div class="list" id="blog-list"></div>
+      </div>
+    </section>
+
+    <!-- PROJECTS -->
+    <section class="panel" data-panel="projects" hidden>
+      <div class="panel-bar blue">
+        <div class="panel-title">Projects</div>
+        <button class="x" data-close>close ✕</button>
+      </div>
+      <div class="panel-body">
+        <p class="intro">Things I've built and explored.</p>
+        <div class="grid" id="projects-grid"></div>
+      </div>
+    </section>
+
+    <!-- LINKS -->
+    <section class="panel" data-panel="links" hidden>
+      <div class="panel-bar green">
+        <div class="panel-title">Links &amp; Contact</div>
+        <button class="x" data-close>close ✕</button>
+      </div>
+      <div class="panel-body">
+        <p class="intro">Reach me or follow along.</p>
+        <div class="list" id="links-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Watchdog: catches the case where the ES module / three.js never loads
+       (e.g. CDN unreachable, import-map unsupported, offline). main.js sets
+       window.__sceneReady on success and shows its own #fatal on a WebGL/init
+       failure; if neither happens, we surface a module/network diagnosis. -->
+  <script>
+    (function () {
+      function showFatal(title, msg, helpHTML, detail) {
+        var f = document.getElementById('fatal');
+        if (!f || !f.hidden) return;            // already shown by main.js
+        var L = document.getElementById('loader'); if (L) L.classList.add('hide');
+        document.getElementById('fatal-title').textContent = title;
+        document.getElementById('fatal-msg').textContent = msg;
+        document.getElementById('fatal-help').innerHTML = helpHTML || '';
+        if (detail) document.getElementById('fatal-detail').textContent = detail;
+        f.hidden = false;
+      }
+      var lastErr = '';
+      window.addEventListener('error', function (e) {
+        if (e && (e.filename || e.message)) lastErr = (e.message || '') + (e.filename ? ('  @ ' + e.filename) : '');
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        lastErr = (e && e.reason && (e.reason.message || e.reason)) || lastErr;
+      });
+
+      // enhanced diagnostics to help when three.js / main.js never runs
+      async function runHtmlDiagnostics() {
+        const lines = [];
+        try { lines.push('navigator.onLine: ' + (navigator.onLine ? 'online' : 'offline')); } catch (e) { lines.push('navigator.onLine: error ' + e.message); }
+
+        const threeURL = 'https://unpkg.com/three@0.160.0/build/three.module.js';
+        // try a network HEAD/GET to the CDN
+        try {
+          const resp = await fetch(threeURL, { method: 'GET', cache: 'no-store' });
+          lines.push('fetch(' + threeURL + '): ' + resp.status + ' ' + resp.statusText + (resp.ok ? ' (ok)' : ''));
+        } catch (e) { lines.push('fetch(' + threeURL + '): ERROR ' + (e && e.message)); }
+
+        // try dynamic import of absolute URL
+        try {
+          const mod = await import(threeURL);
+          lines.push('dynamic import absolute URL: success (exports: ' + Object.keys(mod).slice(0,6).join(',') + (Object.keys(mod).length>6? ',...':'') + ')');
+        } catch (e) { lines.push('dynamic import absolute URL: ERROR ' + (e && e.message)); }
+
+        // try dynamic import of bare specifier to detect import map support
+        try {
+          const mod2 = await import('three');
+          lines.push("dynamic import('three'): success (resolved via import map or native resolution)");
+        } catch (e) { lines.push("dynamic import('three'): ERROR " + (e && e.message)); }
+
+        // check for import map presence in DOM
+        try {
+          const imaps = document.querySelectorAll('script[type="importmap"]');
+          lines.push('importmap scripts found: ' + imaps.length);
+        } catch (e) { lines.push('importmap check: error ' + e.message); }
+
+        // last captured error
+        if (lastErr) lines.push('last window error: ' + lastErr);
+        return lines.join('\n');
+      }
+
+      setTimeout(function () {
+        if (window.__sceneReady) return;        // booted fine
+        // run diagnostics and then show the existing fatal with appended diagnostics
+        runHtmlDiagnostics().then(function (diag) {
+          showFatal(
+            'Couldn’t load the page scripts',
+            'The 3D engine (three.js) didn’t load, so the scene never started.',
+            'Most likely one of:<br>' +
+            '• <b>No internet / CDN blocked</b> — three.js loads from unpkg.com. Check your connection or any firewall/ad-blocker.<br>' +
+            '• <b>Import maps unsupported</b> — update to a current Chrome, Firefox, Edge or Safari 16.4+.<br>' +
+            '• <b>Opened as a file://</b> — ES modules need a server. You’re on Live Server, so this is unlikely, but confirm the URL starts with http://localhost.',
+            (diag ? '\n\nDIAGNOSTICS:\n' + diag : '')
+          );
+        }).catch(function(e){
+          showFatal('Couldn’t load the page scripts', 'The 3D engine (three.js) didn’t load, so the scene never started.', '', '\n\nDIAGNOSTICS ERROR: ' + (e && e.message));
+        });
+      }, 12000);
+    })();
+  </script>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
